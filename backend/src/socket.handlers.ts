@@ -323,10 +323,12 @@ export function setupSocketHandlers(io: Server): void {
 
         socket.on('game:reaction', ({ icon }) => {
             const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
+            console.log(`Reaction received: icon=${icon}, from=${socket.id}, lobby=${lobbyCode}`);
             if (!lobbyCode) {
                 socket.emit('game:error', { message: 'Not in a game' });
                 return;
             }
+            console.log(`Broadcasting reaction to room ${lobbyCode}`);
             socket.to(lobbyCode).emit('game:reaction', {
                 playerId: socket.id,
                 icon
@@ -496,15 +498,15 @@ async function maybeAdvanceAfterResults(io: Server, lobbyCode: string): Promise<
     const nextGame = gameManager.nextRound(lobbyCode);
     if (!nextGame) return;
 
-        if (nextGame.status === 'complete') {
-            // Game over - get awards first to find the "Most Clueless" player
-            const awardsPayload = gameManager.getFinalAwardsPayload(nextGame);
-            const trollName = awardsPayload.mostClueless?.name ?? 'The Adventurer';
+    if (nextGame.status === 'complete') {
+        // Game over - get awards first to find the "Most Clueless" player
+        const awardsPayload = gameManager.getFinalAwardsPayload(nextGame);
+        const trollName = awardsPayload.mostClueless?.name ?? 'The Adventurer';
 
-            // Generate recap with troll name and send complete story
-            const completePayload = await gameManager.getGameCompletePayload(nextGame, trollName);
-            io.to(lobbyCode).emit('game:complete', completePayload);
-            io.to(lobbyCode).emit('game:awards', awardsPayload);
+        // Generate recap with troll name and send complete story
+        const completePayload = await gameManager.getGameCompletePayload(nextGame, trollName);
+        io.to(lobbyCode).emit('game:complete', completePayload);
+        io.to(lobbyCode).emit('game:awards', awardsPayload);
 
         gameManager.endGame(lobbyCode);
         console.log(`Game completed in lobby ${lobbyCode}`);
