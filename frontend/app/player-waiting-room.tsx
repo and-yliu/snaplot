@@ -88,7 +88,7 @@ export default function PlayerWaitingRoomScreen() {
         <SafeAreaView className="flex-1 bg-neo-background">
             <FloatingBackground />
 
-            <View className="absolute top-6 left-6 z-50">
+            <View className="absolute top-16 left-6 z-50">
                 <TouchableOpacity
                     onPress={handleLeaveRoom}
                     activeOpacity={0.8}
@@ -106,7 +106,7 @@ export default function PlayerWaitingRoomScreen() {
                 <View
                     className="flex-1 w-full border-4 border-neo-border rounded-xl p-5 mb-4"
                     style={{
-                        backgroundColor: Colors.neo.secondary,
+                        backgroundColor: Colors.neo.primary,
                         shadowColor: Colors.neo.shadow,
                         shadowOffset: { width: 4, height: 4 },
                         shadowOpacity: 1,
