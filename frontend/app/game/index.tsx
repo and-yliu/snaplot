@@ -32,18 +32,6 @@ export default function GameScreen() {
         return <View />;
     }
 
-    if (!permission.granted) {
-        // Camera permissions are not granted yet.
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.permissionContainer}>
-                    <Text style={styles.message}>We need your permission to show the camera</Text>
-                    <NeoButton onPress={requestPermission} title="Grant Permission" />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
     const handleTakePhoto = async () => {
         if (cameraRef.current) {
             try {
@@ -171,17 +159,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.neo.background,
         paddingHorizontal: 20,
-    },
-    permissionContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    message: {
-        textAlign: 'center',
-        paddingBottom: 10,
-        fontSize: 16,
-        color: Colors.neo.text,
     },
     header: {
         marginBottom: 20,

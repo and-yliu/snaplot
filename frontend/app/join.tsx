@@ -1,17 +1,32 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoPinInput } from '@/components/ui/NeoPinInput';
 
 export default function JoinScreen() {
+  const router = useRouter();
+  const { nickname } = useLocalSearchParams<{ nickname: string }>();
   const [pin, setPin] = useState('');
 
   const handleJoinRoom = () => {
-    console.log('Joining room with PIN:', pin);
-    // Add logic to join room
+    if (pin.length !== 4) {
+      alert('Please enter a 4-digit room PIN');
+      return;
+    }
+
+    console.log('Joining room with PIN:', pin, 'Nickname:', nickname);
+    // Navigate to player waiting room with PIN and nickname
+    router.push({
+      pathname: '/player-waiting-room',
+      params: {
+        nickname,
+        roomPin: pin,
+      }
+    });
   };
 
   return (
@@ -23,9 +38,9 @@ export default function JoinScreen() {
             style={styles.keyboardAvoid}
           >
             <View style={styles.content}>
-              <Text style={styles.title}>Enter the 4 digit room PIN:</Text>
+              <Text style={styles.title}>Enter the 4-digit Room PIN</Text>
 
-              <View style={styles.inputContainer}>
+              <View style={styles.pinContainer}>
                 <NeoPinInput
                   length={4}
                   onComplete={(code) => setPin(code)}
@@ -72,7 +87,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     color: Colors.neo.text,
   },
-  inputContainer: {
+  pinContainer: {
     width: '100%',
     marginBottom: 40,
     alignItems: 'center',

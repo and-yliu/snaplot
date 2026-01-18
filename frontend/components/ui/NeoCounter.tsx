@@ -9,9 +9,13 @@ interface NeoCounterProps {
   min?: number;
   max?: number;
   step?: number;
+  unit?: string; // Optional unit to display after the value (e.g., "sec")
 }
 
-export function NeoCounter({ label, value, onChange, min = 0, max = 100, step = 1 }: NeoCounterProps) {
+export function NeoCounter({ label, value, onChange, min = 0, max = 100, step = 1, unit }: NeoCounterProps) {
+  const isAtMin = value <= min;
+  const isAtMax = value >= max;
+
   const handleDecrement = () => {
     if (value - step >= min) {
       onChange(value - step);
@@ -30,14 +34,25 @@ export function NeoCounter({ label, value, onChange, min = 0, max = 100, step = 
       <View style={styles.counterWrapper}>
         <View style={styles.shadow} />
         <View style={styles.counterContent}>
-          <TouchableOpacity onPress={handleDecrement} style={styles.button}>
-            <Text style={styles.buttonText}>-</Text>
+          <TouchableOpacity
+            onPress={handleDecrement}
+            style={styles.button}
+            disabled={isAtMin}
+          >
+            <Text style={[styles.buttonText, isAtMin && styles.buttonDisabled]}>-</Text>
           </TouchableOpacity>
 
-          <Text style={styles.value}>{value}</Text>
+          <View style={styles.valueContainer}>
+            <Text style={styles.value}>{value}</Text>
+            {unit && <Text style={styles.unit}>{unit}</Text>}
+          </View>
 
-          <TouchableOpacity onPress={handleIncrement} style={styles.button}>
-            <Text style={styles.buttonText}>+</Text>
+          <TouchableOpacity
+            onPress={handleIncrement}
+            style={styles.button}
+            disabled={isAtMax}
+          >
+            <Text style={[styles.buttonText, isAtMax && styles.buttonDisabled]}>+</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -97,9 +112,24 @@ const styles = StyleSheet.create({
     color: Colors.neo.text,
     textAlign: 'center',
   },
+  buttonDisabled: {
+    color: '#CCCCCC', // Grey/faded color when disabled
+    opacity: 0.5,
+  },
+  valueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   value: {
     fontSize: 20,
     fontFamily: 'Nunito_700Bold',
     color: Colors.neo.text,
+  },
+  unit: {
+    fontSize: 16,
+    fontFamily: 'Nunito_600SemiBold',
+    color: Colors.neo.text,
+    opacity: 0.7,
   },
 });

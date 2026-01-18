@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useCameraPermissions } from 'expo-camera';
 
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
@@ -10,21 +11,33 @@ import { NeoInput } from '@/components/ui/NeoInput';
 export default function HomeScreen() {
   const router = useRouter();
   const [nickname, setNickname] = useState('');
+  const [permission, requestPermission] = useCameraPermissions();
+
+  // Request camera permission when component mounts
+  useEffect(() => {
+    if (permission && !permission.granted) {
+      requestPermission();
+    }
+  }, []);
 
   const handleCreateGame = () => {
     if (!nickname.trim()) {
       alert('Please enter a nickname');
       return;
     }
-    // Navigate to create game flow
+    // Navigate to host waiting room
     console.log('Create Game with nickname:', nickname);
-    router.push({ pathname: '/waiting-room', params: { nickname } });
+    router.push({ pathname: '/host-waiting-room', params: { nickname } });
   };
 
   const handleJoinGame = () => {
-    // Navigate to join game flow
-    console.log('Join Game');
-    router.push('/join');
+    if (!nickname.trim()) {
+      alert('Please enter a nickname');
+      return;
+    }
+    // Navigate to join game flow with nickname
+    console.log('Join Game with nickname:', nickname);
+    router.push({ pathname: '/join', params: { nickname } });
   };
 
   return (
@@ -45,7 +58,6 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Please enter your nickname</Text>
                 <NeoInput
                   placeholder="Nickname"
                   value={nickname}
@@ -54,13 +66,16 @@ export default function HomeScreen() {
                 />
               </View>
 
-              <View style={styles.buttonContainer}>
+              <View style={styles.createButtonContainer}>
                 <NeoButton
                   title="➕Create a Game"
                   onPress={handleCreateGame}
                   variant="primary"
                   style={styles.button}
                 />
+              </View>
+
+              <View style={styles.buttonContainer}>
                 <NeoButton
                   title="👥 Join a Game"
                   onPress={handleJoinGame}
@@ -106,6 +121,10 @@ const styles = StyleSheet.create({
     marginBottom: 30, // Space between input and buttons
     height: 50,
   },
+  createButtonContainer: {
+    width: '100%',
+    marginBottom: 20, // Space between Create button and Join button
+  },
   buttonContainer: {
     width: '100%',
     gap: 15, // Space between buttons
@@ -128,20 +147,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 370,
     height: 150,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: Colors.neo.text,
-    marginBottom: 12,
-    opacity: 0.9,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 32,
-  },
-  buttonContainer: {
-    width: '100%',
   },
   button: {
     width: '100%',
