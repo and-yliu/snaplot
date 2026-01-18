@@ -3,6 +3,35 @@
  * 
  * Handles all real-time events for lobby and game management.
  * Updated for story-based game flow.
+ * 
+ * ============================================================================
+ * EVENT REFERENCE
+ * ============================================================================
+ * 
+ * CLIENT -> SERVER (emit):
+ * - lobby:create   { name }                   Create a new lobby as host
+ * - lobby:join     { code, name }             Join existing lobby by code
+ * - lobby:leave    (no payload)               Leave current lobby
+ * - lobby:ready    { ready: boolean }         Toggle ready status
+ * - lobby:settings { rounds?, roundTimeSeconds? }  Update game settings (host only)
+ * - lobby:start    (no payload)               Start the game (host only)
+ * - game:submit    { photoPath }              Submit photo for current round
+ * 
+ * SERVER -> CLIENT (on):
+ * - lobby:state        Full lobby state with players and settings
+ * - lobby:player-joined  New player joined notification
+ * - lobby:player-left    Player left notification  
+ * - lobby:error          Error message
+ * - game:start           Game started with story template and blanks
+ * - game:round           Current round's theme and criteria
+ * - game:tick            Timer countdown (seconds remaining)
+ * - game:player-submitted  Player submitted their photo
+ * - game:judging         AI is judging submissions
+ * - game:round-result    Round winner with photo and one-liner
+ * - game:complete        Story complete with all results
+ * - game:awards          Final awards (Judge's Favorite, Most Clueless)
+ * - game:error           Game error message
+ * ============================================================================
  */
 
 import type { Server, Socket } from 'socket.io';
@@ -10,8 +39,12 @@ import { lobbyManager } from './service/lobby.manager.js';
 import { gameManager } from './service/game.manager.js';
 import type {
     CreateLobbyPayload,
+    GameState,
+    GameStartPayload,
+    RoundPayload,
     JoinLobbyPayload,
     ReadyPayload,
+    SettingsPayload,
     SubmitPhotoPayload,
 } from './lib/types/types.js';
 
@@ -37,6 +70,12 @@ export function setupSocketHandlers(io: Server): void {
         // Lobby Events
         // ========================================================================
 
+        /**
+         * lobby:create - Create a new lobby
+         * @param {string} name - Player's display name
+         * @emits lobby:state - Full lobby state to the creator
+         * @emits lobby:error - If name is missing
+         */
         socket.on('lobby:create', (payload: CreateLobbyPayload) => {
             try {
                 const { name } = payload;
@@ -58,6 +97,14 @@ export function setupSocketHandlers(io: Server): void {
             }
         });
 
+        /**
+         * lobby:join - Join an existing lobby
+         * @param {string} code - 4-character lobby code
+         * @param {string} name - Player's display name
+         * @emits lobby:state - Full lobby state to all players in lobby
+         * @emits lobby:player-joined - Notification to other players
+         * @emits lobby:error - If lobby not found, full, or game in progress
+         */
         socket.on('lobby:join', (payload: JoinLobbyPayload) => {
             try {
                 const { code, name } = payload;
@@ -91,10 +138,21 @@ export function setupSocketHandlers(io: Server): void {
             }
         });
 
+        /**
+         * lobby:leave - Leave the current lobby
+         * @emits lobby:state - Updated state to remaining players
+         * @emits lobby:player-left - Notification to remaining players
+         */
+        //TODO: Different Approach
         socket.on('lobby:leave', () => {
             handlePlayerLeave(io, socket);
         });
 
+        /**
+         * lobby:ready - Toggle ready status
+         * @param {boolean} ready - Ready state
+         * @emits lobby:state - Updated state to all players
+         */
         socket.on('lobby:ready', (payload: ReadyPayload) => {
             try {
                 const { ready } = payload;
@@ -107,6 +165,30 @@ export function setupSocketHandlers(io: Server): void {
             }
         });
 
+        /**
+         * lobby:settings - Update game settings (host only)
+         * @param {number} rounds - Number of rounds (1-8)
+         * @param {number} roundTimeSeconds - Time per round in seconds (30-120)
+         * @emits lobby:state - Updated state with new settings to all players
+         * @emits lobby:error - If not host or game already started
+         */
+        socket.on('lobby:settings', (payload: SettingsPayload) => {
+            try {
+                const lobby = lobbyManager.updateSettings(socket.id, payload);
+                const state = lobbyManager.toLobbyState(lobby);
+                io.to(lobby.code).emit('lobby:state', state);
+            } catch (err) {
+                socket.emit('lobby:error', { message: (err as Error).message });
+            }
+        });
+
+        /**
+         * lobby:start - Start the game (host only)
+         * Requires: all players ready, at least 2 players
+         * @emits game:start - Story template and all blanks
+         * @emits game:round - First round's theme and criteria
+         * @emits lobby:error - If conditions not met
+         */
         socket.on('lobby:start', async () => {
             try {
                 const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
@@ -139,15 +221,15 @@ export function setupSocketHandlers(io: Server): void {
                 // Mark lobby as in-game
                 lobbyManager.setLobbyInGame(lobbyCode);
 
-                // Start the game (async now due to story generation)
-                const game = await gameManager.startGame(lobby);
+                // Start the game (async due to story generation)
+                const game: GameState = await gameManager.startGame(lobby);
 
                 // Send game start with story info
-                const startPayload = gameManager.getGameStartPayload(game);
+                const startPayload: GameStartPayload = gameManager.getGameStartPayload(game);
                 io.to(lobbyCode).emit('game:start', startPayload);
 
                 // Also send first round info
-                const roundPayload = gameManager.getRoundPayload(game);
+                const roundPayload: RoundPayload = gameManager.getRoundPayload(game);
                 io.to(lobbyCode).emit('game:round', roundPayload);
 
                 console.log(`Game started in lobby ${lobbyCode} with ${game.totalRounds} rounds`);
@@ -160,6 +242,12 @@ export function setupSocketHandlers(io: Server): void {
         // Game Events
         // ========================================================================
 
+        /**
+         * game:submit - Submit a photo for the current round
+         * @param {string} photoPath - Path to uploaded photo (from /upload endpoint)
+         * @emits game:player-submitted - Notification to all players
+         * @emits game:error - If submission fails or past deadline
+         */
         socket.on('game:submit', (payload: SubmitPhotoPayload) => {
             try {
                 const { photoPath } = payload;
@@ -196,6 +284,11 @@ export function setupSocketHandlers(io: Server): void {
         // Disconnect
         // ========================================================================
 
+        /**
+         * disconnect - Handle player disconnection
+         * Auto-marks player as submitted (so game can continue)
+         * Removes player from lobby with host migration if needed
+         */
         socket.on('disconnect', () => {
             console.log(`Player disconnected: ${socket.id}`);
 
@@ -218,6 +311,10 @@ export function setupSocketHandlers(io: Server): void {
 // Helper Functions
 // ============================================================================
 
+/**
+ * Handle player leaving lobby
+ * Removes player, migrates host if needed, notifies remaining players
+ */
 function handlePlayerLeave(io: Server, socket: Socket): void {
     const result = lobbyManager.leaveLobby(socket.id);
 
@@ -234,6 +331,15 @@ function handlePlayerLeave(io: Server, socket: Socket): void {
     }
 }
 
+/**
+ * Handle end of a round
+ * Triggers AI judging, picks winner, shows results, advances to next round
+ * @emits game:judging - While AI is processing
+ * @emits game:round-result - Winner info with one-liner
+ * @emits game:round - Next round info (if more rounds)
+ * @emits game:complete - Completed story (if final round)
+ * @emits game:awards - Final awards (if final round)
+ */
 async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
     const game = gameManager.getGame(lobbyCode);
     if (!game) return;
@@ -241,7 +347,7 @@ async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
     // Notify players judging is starting
     io.to(lobbyCode).emit('game:judging');
 
-    // Run AI judge - now returns single winner
+    // Run AI judge - returns single winner
     const result = await gameManager.judgeRound(lobbyCode);
 
     if (result) {

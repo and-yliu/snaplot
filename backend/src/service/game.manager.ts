@@ -15,7 +15,8 @@ import type {
     GameStartPayload,
 } from '../lib/types/types.js';
 import type { Lobby } from '../lib/types/types.js';
-import { generateStory } from './story.placeholder.js';
+import { generateStory, type StoryGenInput } from './story.service.js';
+import { generateRecap, type BlankResult, type RecapResult } from './recap.service.js';
 import { judgeRound as callJudgeRound, type JudgeRoundInput, type PlayerSubmission, type RoundResult } from './judge.service.js';
 
 // ============================================================================
@@ -45,7 +46,7 @@ export class GameManager {
     /**
      * Initialize a new game from a lobby
      */
-    async startGame(lobby: Lobby, totalRounds: number = 4): Promise<GameState> {
+    async startGame(lobby: Lobby): Promise<GameState> {
         const players = new Map<string, PlayerGameState>();
 
         for (const [id, player] of lobby.players) {
@@ -57,15 +58,20 @@ export class GameManager {
             });
         }
 
+        // Use settings from lobby
+        const { rounds, roundTimeSeconds } = lobby.settings;
+
         // Generate story with blanks matching total rounds
-        const story = await generateStory(totalRounds);
-        const deadline = Date.now() + 60000; // 60 seconds
+        const input: StoryGenInput = { roundNumber: rounds };
+        const story: GeneratedStory = await generateStory(input);
+        const deadline = Date.now() + (roundTimeSeconds * 1000);
 
         const game: GameState = {
             lobbyCode: lobby.code,
             players,
             currentRound: 1,
             totalRounds: story.blanks.length, // Use actual blanks count
+            roundTimeSeconds,
             story,
             results: [],
             roundDeadline: deadline,
@@ -285,7 +291,7 @@ export class GameManager {
         }
 
         game.currentRound++;
-        game.roundDeadline = Date.now() + 60000;
+        game.roundDeadline = Date.now() + (game.roundTimeSeconds * 1000);
         game.status = 'round';
 
         this.startRoundTimer(lobbyCode);
@@ -305,7 +311,7 @@ export class GameManager {
      */
     getGameStartPayload(game: GameState): GameStartPayload {
         return {
-            storyTemplate: game.story.template,
+            storyTemplate: game.story.storyTemplate,
             blanks: game.story.blanks,
             totalRounds: game.totalRounds,
         };
@@ -345,7 +351,7 @@ export class GameManager {
      */
     getGameCompletePayload(game: GameState): GameCompletePayload {
         return {
-            storyTemplate: game.story.template,
+            storyTemplate: game.story.storyTemplate,
             results: game.results,
         };
     }

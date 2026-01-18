@@ -13,6 +13,16 @@ export interface Player {
     isReady: boolean;
 }
 
+export interface GameSettings {
+    rounds: number;          // Number of rounds (1-8)
+    roundTimeSeconds: number; // Time per round in seconds (30-120)
+}
+
+export const DEFAULT_GAME_SETTINGS: GameSettings = {
+    rounds: 4,
+    roundTimeSeconds: 60,
+};
+
 export interface Lobby {
     code: string;        // 4-char join code
     players: Map<string, Player>;
@@ -20,6 +30,7 @@ export interface Lobby {
     status: 'waiting' | 'starting' | 'in-game';
     maxPlayers: number;
     createdAt: number;
+    settings: GameSettings;
 }
 
 // ============================================================================
@@ -33,7 +44,7 @@ export interface StoryBlank {
 }
 
 export interface GeneratedStory {
-    template: string;        // Story with {0}, {1}, {2}... placeholders
+    storyTemplate: string;   // Story with {0}, {1}, {2}... placeholders
     blanks: StoryBlank[];    // One per placeholder
 }
 
@@ -63,6 +74,7 @@ export interface GameState {
     players: Map<string, PlayerGameState>;
     currentRound: number;
     totalRounds: number;
+    roundTimeSeconds: number;     // Configured time per round
     story: GeneratedStory;
     results: RoundResultData[];   // Filled as rounds complete
     roundDeadline: number;        // Unix timestamp (ms)
@@ -92,6 +104,11 @@ export interface ReadyPayload {
     ready: boolean;
 }
 
+export interface SettingsPayload {
+    rounds?: number;
+    roundTimeSeconds?: number;
+}
+
 // Game events
 export interface SubmitPhotoPayload {
     photoPath: string;
@@ -109,6 +126,7 @@ export interface LobbyStatePayload {
     hostId: string;
     status: 'waiting' | 'starting' | 'in-game';
     allReady: boolean;
+    settings: GameSettings;
 }
 
 // Game start payload

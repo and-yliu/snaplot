@@ -2,7 +2,8 @@
  * LobbyManager - In-memory lobby state management
  */
 
-import type { Lobby, Player, LobbyStatePayload } from '../lib/types/types.js';
+import type { Lobby, Player, LobbyStatePayload, GameSettings } from '../lib/types/types.js';
+import { DEFAULT_GAME_SETTINGS } from '../lib/types/types.js';
 
 // ============================================================================
 // Lobby Manager Class
@@ -48,6 +49,7 @@ export class LobbyManager {
             status: 'waiting',
             maxPlayers: 8,
             createdAt: Date.now(),
+            settings: { ...DEFAULT_GAME_SETTINGS },
         };
 
         this.lobbies.set(code, lobby);
@@ -194,6 +196,39 @@ export class LobbyManager {
     }
 
     /**
+     * Update lobby settings (host only)
+     */
+    updateSettings(socketId: string, settings: Partial<GameSettings>): Lobby {
+        const code = this.playerToLobby.get(socketId);
+        if (!code) {
+            throw new Error('Not in a lobby');
+        }
+
+        const lobby = this.lobbies.get(code);
+        if (!lobby) {
+            throw new Error('Lobby not found');
+        }
+
+        if (lobby.hostId !== socketId) {
+            throw new Error('Only the host can change settings');
+        }
+
+        if (lobby.status !== 'waiting') {
+            throw new Error('Cannot change settings after game started');
+        }
+
+        // Validate and apply settings
+        if (settings.rounds !== undefined) {
+            lobby.settings.rounds = Math.max(3, Math.min(6, settings.rounds));
+        }
+        if (settings.roundTimeSeconds !== undefined) {
+            lobby.settings.roundTimeSeconds = Math.max(15, Math.min(60, settings.roundTimeSeconds));
+        }
+
+        return lobby;
+    }
+
+    /**
      * Convert lobby to broadcastable payload
      */
     toLobbyState(lobby: Lobby): LobbyStatePayload {
@@ -210,6 +245,7 @@ export class LobbyManager {
             hostId: lobby.hostId,
             status: lobby.status,
             allReady: this.allPlayersReady(lobby.code),
+            settings: lobby.settings,
         };
     }
 }

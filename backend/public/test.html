@@ -1,31 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IRL Quests - Socket Test</title>
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
-    body { max-width: 600px; margin: 2rem auto; padding: 1rem; background: #1a1a2e; color: #eee; }
-    h1 { color: #00d9ff; }
-    .section { background: #16213e; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
-    button { background: #00d9ff; color: #000; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin: 0.25rem; }
-    button:hover { background: #00b8d9; }
-    input { padding: 0.5rem; border-radius: 4px; border: 1px solid #333; background: #0f0f23; color: #fff; width: 150px; }
-    #log { background: #0f0f23; padding: 1rem; border-radius: 4px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; }
-    .log-entry { margin: 0.25rem 0; padding: 0.25rem; border-left: 3px solid #333; }
-    .log-entry.send { border-color: #00d9ff; }
-    .log-entry.receive { border-color: #00ff88; }
-    .log-entry.error { border-color: #ff4444; }
-    .status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; }
-    .status.connected { background: #00ff88; }
-    .status.disconnected { background: #ff4444; }
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, sans-serif;
+    }
+
+    body {
+      max-width: 600px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #1a1a2e;
+      color: #eee;
+    }
+
+    h1 {
+      color: #00d9ff;
+    }
+
+    .section {
+      background: #16213e;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
+    button {
+      background: #00d9ff;
+      color: #000;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0.25rem;
+    }
+
+    button:hover {
+      background: #00b8d9;
+    }
+
+    input {
+      padding: 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #0f0f23;
+      color: #fff;
+      width: 150px;
+    }
+
+    #log {
+      background: #0f0f23;
+      padding: 1rem;
+      border-radius: 4px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      margin: 0.25rem 0;
+      padding: 0.25rem;
+      border-left: 3px solid #333;
+    }
+
+    .log-entry.send {
+      border-color: #00d9ff;
+    }
+
+    .log-entry.receive {
+      border-color: #00ff88;
+    }
+
+    .log-entry.error {
+      border-color: #ff4444;
+    }
+
+    .status {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+
+    .status.connected {
+      background: #00ff88;
+    }
+
+    .status.disconnected {
+      background: #ff4444;
+    }
   </style>
 </head>
+
 <body>
   <h1>🎮 IRL Quests - Socket Test</h1>
-  
+
   <div class="section">
     <span class="status disconnected" id="statusDot"></span>
     <span id="statusText">Disconnected</span>
@@ -41,6 +118,13 @@
     <button onclick="leaveLobby()">Leave</button>
     <button onclick="toggleReady()">Toggle Ready</button>
     <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <div class="section">
+    <h3>⚙️ Settings (Host Only)</h3>
+    <label>Rounds: <input type="number" id="rounds" value="4" min="1" max="8" style="width:60px"></label>
+    <label>Time (sec): <input type="number" id="roundTime" value="60" min="30" max="120" style="width:60px"></label>
+    <button onclick="updateSettings()">Update Settings</button>
   </div>
 
   <div class="section">
@@ -72,19 +156,27 @@
     });
 
     // Lobby events
-    socket.on('lobby:state', (data) => log('lobby:state: ' + JSON.stringify(data, null, 2), 'receive'));
+    socket.on('lobby:state', (data) => {
+      log('lobby:state: ' + JSON.stringify(data, null, 2), 'receive');
+      // Update settings inputs if received
+      if (data.settings) {
+        document.getElementById('rounds').value = data.settings.rounds;
+        document.getElementById('roundTime').value = data.settings.roundTimeSeconds;
+      }
+    });
     socket.on('lobby:player-joined', (data) => log('lobby:player-joined: ' + JSON.stringify(data), 'receive'));
     socket.on('lobby:player-left', (data) => log('lobby:player-left: ' + JSON.stringify(data), 'receive'));
     socket.on('lobby:error', (data) => log('lobby:error: ' + data.message, 'error'));
 
-    // Game events
+    // Game events (updated for story-based flow)
     socket.on('game:start', (data) => log('🎮 game:start: ' + JSON.stringify(data, null, 2), 'receive'));
-    socket.on('game:riddle', (data) => log('❓ game:riddle: ' + JSON.stringify(data, null, 2), 'receive'));
-    socket.on('game:tick', (data) => log('⏱️ game:tick: ' + data.remainingSeconds + 's', 'receive'));
-    socket.on('game:player-submitted', (data) => log('📸 game:player-submitted: ' + data.playerName, 'receive'));
-    socket.on('game:judging', () => log('🤖 game:judging...', 'receive'));
-    socket.on('game:round-results', (data) => log('🏆 game:round-results: ' + JSON.stringify(data, null, 2), 'receive'));
-    socket.on('game:final-results', (data) => log('🎉 game:final-results: ' + JSON.stringify(data, null, 2), 'receive'));
+    socket.on('game:round', (data) => log('❓ game:round: ' + JSON.stringify(data, null, 2), 'receive'));
+    socket.on('game:tick', (data) => log('⏱️ ' + data.remainingSeconds + 's', 'receive'));
+    socket.on('game:player-submitted', (data) => log('📸 ' + data.playerName + ' submitted', 'receive'));
+    socket.on('game:judging', () => log('🤖 Judging...', 'receive'));
+    socket.on('game:round-result', (data) => log('🏆 Winner: ' + data.winnerName + ' - ' + data.oneliner, 'receive'));
+    socket.on('game:complete', (data) => log('📖 Story Complete! ' + data.results.length + ' rounds', 'receive'));
+    socket.on('game:awards', (data) => log('🎉 Awards: ' + JSON.stringify(data, null, 2), 'receive'));
     socket.on('game:error', (data) => log('game:error: ' + data.message, 'error'));
 
     // Actions
@@ -118,6 +210,13 @@
       log('lobby:start', 'send');
     }
 
+    function updateSettings() {
+      const rounds = parseInt(document.getElementById('rounds').value);
+      const roundTimeSeconds = parseInt(document.getElementById('roundTime').value);
+      socket.emit('lobby:settings', { rounds, roundTimeSeconds });
+      log('lobby:settings { rounds: ' + rounds + ', roundTimeSeconds: ' + roundTimeSeconds + ' }', 'send');
+    }
+
     function submitPhoto() {
       // In real app, this would be the path from /upload endpoint
       socket.emit('game:submit', { photoPath: 'uploads/test.jpg' });
@@ -138,4 +237,5 @@
     }
   </script>
 </body>
+
 </html>
