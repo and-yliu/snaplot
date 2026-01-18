@@ -25,29 +25,37 @@ export const Colors = {
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
   },
+  neo: {
+    primary: '#A881EA', // Lavender
+    secondary: '#FFA6C9', // Soft Pink
+    tertiary: '#FCE762', // Soft Yellow
+    text: '#000000',
+    background: '#FFF8E7', // Beige
+    // backgroundGradient: ['#FFF5C2', '#FFC0CB', '#E0B0FF'], // Removed for now
+    border: '#000000',
+    card: '#FFFFFF',
+    shadow: '#000000',
+  }
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
+    sans: 'Nunito_400Regular',
+    serif: 'Nunito_600SemiBold',
+    rounded: 'Nunito_700Bold',
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
+    sans: 'Nunito_400Regular',
+    serif: 'Nunito_600SemiBold',
+    rounded: 'Nunito_700Bold',
     mono: 'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    sans: 'Nunito_400Regular, sans-serif',
+    serif: 'Nunito_600SemiBold, serif',
+    rounded: 'Nunito_700Bold, sans-serif',
+    mono: 'monospace',
   },
 });
+

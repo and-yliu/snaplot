@@ -38,7 +38,14 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Snapplot to access your camera to take photos for the game."
+        }
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
