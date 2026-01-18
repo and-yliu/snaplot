@@ -243,8 +243,8 @@ export default function RoundResultScreen() {
       {/* Fixed Footer - Reactions & Ready Button */}
       {step >= 4 && (
         <View className="absolute bottom-0 left-0 right-0 px-6 mb-10 pt-3 bg-neo-background gap-6">
-          {/* Remote reactions from other players */}
-          <View className="absolute -top-12 left-0 right-0 items-center pointer-events-none">
+          {/* Remote reactions from other players - positioned above the buttons */}
+          <View style={{ position: 'absolute', top: -150, left: 0, right: 0, height: 150, pointerEvents: 'none' }}>
             {remoteReactions.map((reaction) => (
               <FlyingEmoji
                 key={reaction.id}
@@ -317,18 +317,20 @@ function NeoReactionButton({ icon, color, onSend }: { icon: IconName; color: str
 
 function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; color: string; onComplete: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
+  // Random horizontal position (20-80% of container width)
+  const randomLeft = useRef(`${20 + Math.random() * 60}%` as any).current;
 
   useEffect(() => {
     Animated.timing(anim, {
       toValue: 1,
-      duration: 1000,
+      duration: 1200,
       useNativeDriver: true,
     }).start(onComplete);
   }, []);
 
   const translateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -100] // Fly up 100px
+    outputRange: [0, -120] // Fly up 120px
   });
 
   const opacity = anim.interpolate({
@@ -337,27 +339,22 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; col
   });
 
   const scale = anim.interpolate({
-    inputRange: [0, 0.2, 1],
-    outputRange: [0.5, 1.2, 1] // Pop effect
+    inputRange: [0, 0.15, 0.3, 1],
+    outputRange: [0.3, 1.4, 1.1, 1] // Pop effect
   });
 
   return (
     <Animated.View
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
         bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
+        left: randomLeft,
+        transform: [{ translateX: -20 }, { translateY }, { scale }],
+        opacity,
         zIndex: 100,
-        pointerEvents: 'none',
-        transform: [{ translateY }, { scale }],
-        opacity
       }}
     >
-      <Ionicons name={icon as IconName} size={28} color={color} />
+      <Ionicons name={icon as IconName} size={40} color={color} />
     </Animated.View>
   );
 }

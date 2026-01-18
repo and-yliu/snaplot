@@ -217,7 +217,7 @@ function StoryChunk({ data, isActive, onComplete, playPop }: { data: ChunkData, 
       </View>
 
       {/* Image Container */}
-      <View className="min-h-[200px] w-full items-center">
+      <View className="min-h-[200px] max-h-[400px] w-full items-center">
         {showImage && data.image && (
           <View className="w-full">
             {/* Object Name Badge */}
@@ -239,11 +239,11 @@ function StoryChunk({ data, isActive, onComplete, playPop }: { data: ChunkData, 
                 )}
               </View>
             )}
-            <NeoView className="w-full aspect-video" style={data.objectName ? { borderTopLeftRadius: 0, borderTopRightRadius: 0 } : undefined}>
+            <NeoView className="w-full aspect-video bg-neo-shadow" style={data.objectName ? { borderTopLeftRadius: 0, borderTopRightRadius: 0 } : undefined}>
               <Image
                 source={{ uri: data.image }}
                 className="w-full h-full"
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </NeoView>
           </View>
