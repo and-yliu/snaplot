@@ -46,11 +46,22 @@ export default function StoryResultScreen() {
   }, [player]);
 
   // Derive protagonist from mostClueless (troll) name
-  const protagonist = awards?.mostClueless?.name ?? 'The Adventurer';
+  const protagonist = awards?.mostClueless?.name ?? PROTAGONIST;
 
   // Map segments to story chunks with images and object names from results
-  const storyChunks = useMemo(() => {
-    if (!gameComplete) return [];
+  // Fallback to MOCK data if no gameComplete (e.g. Test Story mode)
+  const storyChunks: ChunkData[] = useMemo(() => {
+    if (!gameComplete) {
+      // Return mock chunks mapped to ChunkData interface
+      return STORY_CHUNKS.map(chunk => ({
+        id: chunk.id,
+        text: chunk.text,
+        image: chunk.image,
+        objectName: 'Mock Object',
+        winnerName: 'Mock Winner'
+      }));
+    }
+
     return gameComplete.segments.map((seg) => {
       const result = gameComplete.results[seg.index];
       return {
@@ -63,7 +74,7 @@ export default function StoryResultScreen() {
     });
   }, [gameComplete]);
 
-  const summaryText = gameComplete?.finalStory ?? `And that concludes the legend of ${protagonist}.`;
+  const summaryText = gameComplete?.finalStory ?? SUMMARY_TEXT;
 
   // State
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0); // 0, 1, 2
@@ -99,7 +110,7 @@ export default function StoryResultScreen() {
       <ScrollView
         ref={scrollViewRef}
         className="flex-1"
-        contentContainerStyle={{ padding: 24, paddingBottom: 50 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 10, paddingTop: 60 }}
         showsVerticalScrollIndicator={false}
       >
         <Text
@@ -200,7 +211,7 @@ function StoryChunk({ data, isActive, onComplete, playPop }: { data: ChunkData, 
           if (onComplete) onComplete();
         }, 1000); // 1s delay (The "Comic Pause")
       }
-    }, 30); // Typing speed
+    }, 40); // 0.75x speed (slower)
 
     return () => clearInterval(intervalId);
   }, [isActive, data.text, isTypingDone, onComplete, playPop]);
