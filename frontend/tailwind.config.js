@@ -9,7 +9,8 @@ module.exports = {
     extend: {
       colors: {
         neo: {
-          primary: '#A881EA',
+          primary: '#4CAF50',
+          'primary-dark': '#388E3C',
           secondary: '#FFA6C9',
           tertiary: '#FCE762',
           text: '#000000',
