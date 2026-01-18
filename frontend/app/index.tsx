@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Text, View, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
+import { Text, View, TouchableWithoutFeedback, Keyboard, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
@@ -10,6 +10,145 @@ import { NeoInput } from '@/components/ui/NeoInput';
 import { useSocket } from '@/hooks/useSocket';
 
 const fullWidthButtonStyle = { width: '100%' } as const;
+
+// Neo Brutalism Logo Component
+const SnapPlotLogo = () => {
+  return (
+    <View style={styles.logoContainer}>
+      {/* SNAP text with neo brutalist box */}
+      <View style={styles.snapBox}>
+        <Text style={styles.snapText}>SNAP</Text>
+      </View>
+
+      {/* PLOT text with offset neo brutalist box */}
+      <View style={styles.plotBox}>
+        <Text style={styles.plotText}>PLOT</Text>
+      </View>
+
+      {/* Camera icon accent */}
+      <View style={styles.cameraIconContainer}>
+        <View style={styles.cameraBody}>
+          <View style={styles.cameraLens} />
+        </View>
+      </View>
+
+      {/* Decorative elements */}
+      <View style={styles.decorDot1} />
+      <View style={styles.decorDot2} />
+      <View style={styles.decorLine} />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+    marginTop: -80,
+    position: 'relative',
+  },
+  snapBox: {
+    backgroundColor: '#FCE762', // Bright yellow
+    borderWidth: 4,
+    borderColor: '#000000',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    transform: [{ rotate: '-3deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+    zIndex: 2,
+  },
+  snapText: {
+    fontFamily: 'Audiowide_400Regular',
+    fontSize: 52,
+    color: '#000000',
+    letterSpacing: 4,
+  },
+  plotBox: {
+    backgroundColor: '#FF6B6B', // Coral red
+    borderWidth: 4,
+    borderColor: '#000000',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    marginTop: -12,
+    marginLeft: 40,
+    transform: [{ rotate: '2deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+    zIndex: 1,
+  },
+  plotText: {
+    fontFamily: 'Audiowide_400Regular',
+    fontSize: 52,
+    color: '#FFFFFF',
+    letterSpacing: 4,
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    top: -20,
+    right: -10,
+    zIndex: 3,
+  },
+  cameraBody: {
+    width: 44,
+    height: 32,
+    backgroundColor: '#4CAF50', // Green
+    borderWidth: 3,
+    borderColor: '#000000',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '15deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+  },
+  cameraLens: {
+    width: 16,
+    height: 16,
+    backgroundColor: '#000000',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  decorDot1: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    backgroundColor: '#FFA6C9', // Pink
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderRadius: 6,
+    top: 20,
+    left: -20,
+  },
+  decorDot2: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    backgroundColor: '#87CEEB', // Sky blue
+    borderWidth: 2,
+    borderColor: '#000000',
+    top: 100,
+    right: -15,
+  },
+  decorLine: {
+    position: 'absolute',
+    width: 40,
+    height: 4,
+    backgroundColor: '#000000',
+    bottom: -20,
+    left: 20,
+    transform: [{ rotate: '-10deg' }],
+  },
+});
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -74,13 +213,8 @@ export default function HomeScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View className="flex-1 w-full">
           <View className="flex-1 items-center justify-center px-6">
-            <View className="items-center mb-8 -mt-36">
-              <Image
-                source={require('@/assets/images/snapplot_logo.png')}
-                className="w-[370px] h-[150px]"
-                resizeMode="contain"
-              />
-            </View>
+            {/* Neo Brutalism Logo */}
+            <SnapPlotLogo />
 
             <View className="flex-row items-center mb-5">
               <View

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
+import { Audiowide_400Regular } from '@expo-google-fonts/audiowide';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
@@ -18,6 +19,7 @@ export default function RootLayout() {
     Nunito_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,
+    Audiowide_400Regular,
   });
 
   useEffect(() => {
