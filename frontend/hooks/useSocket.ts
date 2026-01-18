@@ -44,6 +44,10 @@ export interface RoundPayload {
     totalRounds: number;
 }
 
+export interface TickPayload {
+    remainingSeconds: number;
+}
+
 // Navigation types for pending navigation
 export type PendingNavigation =
     | { type: 'host-waiting-room'; roomPin: string }
@@ -64,6 +68,7 @@ interface SocketState {
     error: string | null;
     gameStart: GameStartPayload | null;
     currentRound: RoundPayload | null;
+    tick: TickPayload | null;
     pendingNavigation: PendingNavigation;
 }
 
@@ -73,6 +78,7 @@ let globalState: SocketState = {
     error: null,
     gameStart: null,
     currentRound: null,
+    tick: null,
     pendingNavigation: null,
 };
 
@@ -189,6 +195,10 @@ function getSocket(): Socket {
                 setGlobalState({ currentRound: payload });
             });
 
+            socketInstance.on('game:tick', (payload: TickPayload) => {
+                setGlobalState({ tick: payload });
+            });
+
             socketInstance.on('game:error', ({ message }: { message: string }) => {
                 console.log('Game error:', message);
                 setGlobalState({ error: message });
@@ -238,6 +248,7 @@ export function useSocket() {
             lobbyState: null,
             gameStart: null,
             currentRound: null,
+            tick: null,
             error: null,
             pendingNavigation: null,
         });
@@ -275,6 +286,7 @@ export function useSocket() {
         error: state.error,
         gameStart: state.gameStart,
         currentRound: state.currentRound,
+        tick: state.tick,
         pendingNavigation: state.pendingNavigation,
         createLobby,
         joinLobby,

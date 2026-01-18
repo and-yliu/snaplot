@@ -1,31 +1,36 @@
-import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { useSocket } from '@/hooks/useSocket';
 
 export default function GameScreen() {
-    const router = useRouter();
     const [permission, requestPermission] = useCameraPermissions();
     const cameraRef = useRef<CameraView>(null);
     const [photo, setPhoto] = useState<string | null>(null);
-    const [timeLeft, setTimeLeft] = useState(59);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submittedCount, setSubmittedCount] = useState(3); // Mock data
+    const submittedCount = 0; // TODO: wire game:player-submitted
+
+    const { lobbyState, gameStart, currentRound, tick, submitPhoto } = useSocket();
 
     useEffect(() => {
-        if (timeLeft > 0) {
-            const timer = setInterval(() => {
-                setTimeLeft((prev) => prev - 1);
-            }, 1000);
-            return () => clearInterval(timer);
+        if (permission && !permission.granted) {
+            requestPermission();
         }
-    }, [timeLeft]);
+    }, [permission, requestPermission]);
+
+    const totalSeconds = lobbyState?.settings?.roundTimeSeconds ?? 60;
+    const timeLeft = tick?.remainingSeconds ?? totalSeconds;
+
+    const timeProgressPct = useMemo(() => {
+        if (!totalSeconds) return 0;
+        return Math.max(0, Math.min(100, (timeLeft / totalSeconds) * 100));
+    }, [timeLeft, totalSeconds]);
+
+    const promptText = currentRound?.theme ?? gameStart?.blanks?.[0]?.theme ?? '...';
+    const criteriaText = currentRound?.criteria ?? gameStart?.blanks?.[0]?.criteria ?? '...';
 
     if (!permission) {
         // Camera permissions are still loading.
@@ -53,11 +58,8 @@ export default function GameScreen() {
     };
 
     const handleSubmit = () => {
-        setIsSubmitting(true);
-        console.log('Submitted photo:', photo);
-        // Navigate immediately
-        router.push('/round-result' as any);
-        setIsSubmitting(false);
+        if (!photo) return;
+        submitPhoto(photo);
     };
 
     return (
@@ -74,11 +76,11 @@ export default function GameScreen() {
 
 
                 <Text style={styles.promptText}>
-                    Something you would use when in a fight with crocodiles
+                    {promptText}
                 </Text>
 
                 <Text style={styles.criteriaText}>
-                    Criteria: <Text style={styles.criteriaHighlight}>The Weakest</Text>
+                    Criteria: <Text style={styles.criteriaHighlight}>{criteriaText}</Text>
                 </Text>
 
                 {/* Timer Bar */}
@@ -88,7 +90,7 @@ export default function GameScreen() {
                         <View
                             style={[
                                 styles.progressBarFill,
-                                { width: `${(timeLeft / 59) * 100}%` }
+                                { width: `${timeProgressPct}%` }
                             ]}
                         />
                     </View>
