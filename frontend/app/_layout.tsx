@@ -33,13 +33,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="join" options={{ presentation: 'card', headerShown: false }} />
         <Stack.Screen name="host-waiting-room" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="player-waiting-room" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="game/index" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="prizes" options={{ headerShown: false }} />
-        <Stack.Screen name="test-loading" options={{ headerShown: false }} />
+        <Stack.Screen name="game" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="round-result" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="story-result" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="prizes" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

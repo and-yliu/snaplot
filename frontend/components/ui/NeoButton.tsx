@@ -40,6 +40,7 @@ export function NeoButton({
   const getTextColor = () => {
     if (disabled) return '#666666';
     if (textColor) return textColor;
+    if (variant === 'primary') return '#FFFFFF';
     return Colors.neo.text;
   };
 
@@ -54,13 +55,13 @@ export function NeoButton({
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
-      className={`relative h-[50px] ${className ?? ''}`}
+      className={`relative h-[50px] ${className}`}
       style={style}
       disabled={disabled}
     >
-      <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-xl" />
+      <View className={`absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] rounded-xl ${variant === 'primary' ? 'bg-neo-primary-dark' : 'bg-neo-shadow'}`} />
       <View
-        className={`h-full border-2 border-neo-border items-center justify-center rounded-xl ${backgroundClassName}`}
+        className={`h-full border-2 items-center justify-center rounded-xl ${variant === 'primary' ? 'border-neo-primary-dark' : 'border-neo-border'} ${backgroundClassName}`}
         style={backgroundColor ? { backgroundColor: getBackgroundColor() } : undefined}
       >
         <Text

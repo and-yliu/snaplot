@@ -1,32 +1,77 @@
-// eslint-disable-next-line import/namespace
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useAudioPlayer } from 'expo-audio';
+import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 
-import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
+import { SERVER_URL, useSocket } from '@/hooks/useSocket';
 
 export default function RoundResultScreen() {
   const router = useRouter();
+  const {
+    roundResult,
+    roundResultContext,
+    nextRoundStatus,
+    readyForNextRound,
+    currentRound,
+    pendingNavigation,
+    clearPendingNavigation,
+    remoteReactions,
+    consumeReaction,
+    sendReaction,
+  } = useSocket();
 
   // Animation States
   const [step, setStep] = useState(0); // 0: Init, 1: Criteria, 2: Winner, 3: Comment, 4: Done
   const opacityAnim = useRef(new Animated.Value(0)).current; // For Comment Card
   const hasRun = useRef(false); // Ref to prevent double execution
+  const [hasConfirmed, setHasConfirmed] = useState(false);
 
-  // Mock Data
-  const criteria = "The Weakest";
-  const winnerName = "Alice";
-  const winnerText = "{winner} would use this when in a fight with crocodiles";
-  const comment = "“Even my grandma can beat your ass with you holding that.”";
+  const soundRef = useRef<Audio.Sound | null>(null);
 
-  const player = useAudioPlayer(require('@/assets/audios/drum_roll.mp3'));
+  const criteria = roundResultContext?.criteria ?? '';
+  const theme = roundResultContext?.theme ?? '';
+  const winnerName = roundResult?.winnerName ?? '';
+  const winnerText = theme ? `${winnerName} would use this: ${theme}` : `${winnerName} wins this round`;
+  const comment = roundResult?.oneliner ?? '';
+  const winnerPhotoUrl = roundResult?.photoPath
+    ? `${SERVER_URL}/${roundResult.photoPath.replace(/^\/+/, '')}`
+    : null;
+
+  // Load audio on mount
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require('@/assets/audios/drum_roll.mp3')
+        );
+        soundRef.current = sound;
+      } catch (error) {
+        console.log('Error loading sound', error);
+      }
+    };
+    loadSound();
+
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   useEffect(() => {
+    hasRun.current = false;
+    opacityAnim.setValue(0);
+    setStep(0);
+    setHasConfirmed(false);
+  }, [roundResult?.round, opacityAnim]);
+
+  useEffect(() => {
+    if (!roundResult) return;
     if (hasRun.current) return;
     hasRun.current = true;
 
@@ -34,7 +79,11 @@ export default function RoundResultScreen() {
       // Step 0: Initial State (Just "Criteria:" label logic handled in render)
 
       // Step 1: Reveal Criteria Content
-      player.play(); // Play Drum Roll
+      try {
+        if (soundRef.current) await soundRef.current.replayAsync();
+      } catch (e) {
+        console.log('Audio play error', e);
+      } // Play Drum Roll
 
       // Wait 2s for drum roll to finish/reach peak
       setTimeout(() => {
@@ -43,8 +92,12 @@ export default function RoundResultScreen() {
         // GAP 1: 1s sleep after criteria content shown
         setTimeout(() => {
           // Step 2: Winner Reveal
-          player.seekTo(0); // Reset audio
-          player.play(); // Play again
+          const playSecond = async () => {
+            try {
+              if (soundRef.current) await soundRef.current.replayAsync();
+            } catch (e) { }
+          };
+          playSecond();
 
           // Wait 2s
           setTimeout(() => {
@@ -68,81 +121,173 @@ export default function RoundResultScreen() {
     };
 
     runSequence();
-  }, [opacityAnim, player]); // Depend on player availability
+  }, [opacityAnim, roundResult]); // Depend on player availability
 
-  const handleNextRound = () => {
-    // Go to next round or home
-    router.back();
+  // ... rest of the component
+
+
+  useEffect(() => {
+    if (!roundResult?.round) return;
+    if (!currentRound?.round) return;
+    if (currentRound.round === roundResult.round + 1) {
+      router.replace('/game');
+    }
+  }, [currentRound?.round, roundResult?.round, router]);
+
+  useEffect(() => {
+    if (pendingNavigation?.type !== 'game') return;
+    clearPendingNavigation();
+    router.replace('/game');
+  }, [pendingNavigation, clearPendingNavigation, router]);
+
+  // Navigate to story-result when game is complete
+  useEffect(() => {
+    if (pendingNavigation?.type !== 'story-result') return;
+    clearPendingNavigation();
+    router.replace('/story-result');
+  }, [pendingNavigation, clearPendingNavigation, router]);
+
+  const handleReadyNextRound = () => {
+    readyForNextRound();
+    setHasConfirmed(true);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <View style={styles.content}>
+    <SafeAreaView className="flex-1 bg-neo-background" edges={['top', 'left', 'right', 'bottom']}>
+      <View className="flex-1 w-full px-6 py-4">
 
-        {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.criteriaLabel}>Criteria: {step >= 1 ? criteria : ''}</Text>
+        {/* Round Header */}
+        <View className="w-full items-center mb-4">
+          <Text
+            className="text-base text-neo-text/60"
+            style={{ fontFamily: 'Nunito_600SemiBold' }}
+          >
+            ROUND {roundResult?.round ?? 1} WINNER
+          </Text>
         </View>
 
-        {/* Winner Section */}
-        {step >= 2 && (
-          <View style={styles.winnerContainer}>
-            <Text style={styles.winnerText}>
-              {winnerText.replace('{winner}', winnerName)}
+        {/* Theme & Criteria Section */}
+        <View className="w-full mb-4">
+          <View className="mb-2">
+            <Text
+              className="text-sm text-neo-text/50 uppercase tracking-wider"
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              Theme
             </Text>
-            {/* Image Placeholder - Replicating the Cup Image style */}
-            <View style={styles.imageContainer}>
-              {/* Using a placeholder view for now as I don't have the specific cup image asset */}
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=3454&auto=format&fit=crop' }}
-                style={styles.winnerImage}
-                resizeMode="cover"
-              />
+            <Text
+              className="text-xl text-neo-text"
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              {step >= 1 ? theme : '...'}
+            </Text>
+          </View>
+          <View>
+            <Text
+              className="text-sm text-neo-text/50 uppercase tracking-wider"
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              Criteria
+            </Text>
+            <Text
+              className="text-xl text-neo-text"
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              {step >= 1 ? criteria : '...'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Winner Section with Comment */}
+        {step >= 2 && (
+          <View className="w-full relative">
+            {/* Winner Photo */}
+            <View className="w-full rounded-2xl aspect-square bg-white border-2 border-neo-border overflow-hidden">
+              {winnerPhotoUrl ? (
+                <Image
+                  source={{ uri: winnerPhotoUrl }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
+              ) : null}
+            </View>
+
+            {/* Winner Name Tag - overlaid on top right */}
+            <View className="absolute top-3 right-3 bg-black px-4 py-1.5 rounded-full">
+              <Text
+                className="text-base text-white"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                {winnerName}
+              </Text>
             </View>
           </View>
         )}
 
-        {/* Judge's Comment */}
-        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginBottom: 10 }}>
+        {/* Judge's Comment - grouped with image */}
+        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 16 }}>
           {step >= 3 && (
-            <NeoView style={styles.commentNeoView}>
-              {/* <Text style={styles.commentLabel}>Judge’s Comment:</Text> */}
-              <Text style={styles.commentText}>{comment}</Text>
+            <NeoView className="w-full bg-[#FFF5EB] p-4 mt-3">
+              <Text
+                className="text-xl text-[#4caf50]"
+                style={{ fontFamily: 'Nunito_600SemiBold', lineHeight: 26 }}
+              >
+                "{comment}"
+              </Text>
             </NeoView>
           )}
         </Animated.View>
 
-        {/* Reactions & Footer */}
-        {step >= 4 && (
-          <View style={styles.footerContainer}>
-            <View style={styles.reactionsRow}>
-              <NeoReactionButton icon="thumbs-up" color="#E8C547" />
-              <NeoReactionButton icon="thumbs-down" color="#E8C547" />
-              <NeoReactionButton icon="egg" color="#E8C547" />
-              <NeoReactionButton icon="rose" color="#FF6B6B" />
-            </View>
-
-            <NeoButton
-              title="Next Round (1/3)"
-              onPress={handleNextRound}
-              variant="primary"
-              style={styles.nextButton}
-            />
-          </View>
-        )}
-
       </View>
+
+      {/* Fixed Footer - Reactions & Ready Button */}
+      {step >= 4 && (
+        <View className="absolute bottom-0 left-0 right-0 px-6 mb-10 pt-3 bg-neo-background gap-6">
+          {/* Remote reactions from other players */}
+          <View className="absolute -top-12 left-0 right-0 items-center pointer-events-none">
+            {remoteReactions.map((reaction) => (
+              <FlyingEmoji
+                key={reaction.id}
+                icon={reaction.icon}
+                color="#E8C547"
+                onComplete={() => consumeReaction(reaction.id)}
+              />
+            ))}
+          </View>
+
+          <View className="flex-row justify-between w-full mb-2.5 z-10">
+            <NeoReactionButton icon="thumbs-up" color="#E8C547" onSend={sendReaction} />
+            <NeoReactionButton icon="thumbs-down" color="#E8C547" onSend={sendReaction} />
+            <NeoReactionButton icon="egg" color="#E8C547" onSend={sendReaction} />
+            <NeoReactionButton icon="rose" color="#FF6B6B" onSend={sendReaction} />
+          </View>
+
+          <NeoButton
+            title={
+              hasConfirmed
+                ? 'READY ✓'
+                : `READY (${nextRoundStatus?.readyCount ?? 0}/${nextRoundStatus?.totalPlayers ?? 0})`
+            }
+            onPress={handleReadyNextRound}
+            variant="primary"
+            className="w-full"
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 // Helper for Neo Reaction Buttons
-function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+function NeoReactionButton({ icon, color, onSend }: { icon: IconName; color: string; onSend: (icon: string) => void }) {
   const [reactions, setReactions] = useState<number[]>([]);
 
   const handlePress = () => {
     const id = Date.now() + Math.random();
     setReactions((prev) => [...prev, id]);
+    onSend(icon);  // Send to other players
   };
 
   const removeReaction = (id: number) => {
@@ -150,7 +295,7 @@ function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
   };
 
   return (
-    <View style={styles.reactionContainer}>
+    <View className="w-[60px] h-[60px] relative">
       {/* Helper Wrapper for Z-Index context if needed, but absolute positioning in relative container works */}
       {reactions.map((id) => (
         <FlyingEmoji key={id} icon={icon} color={color} onComplete={() => removeReaction(id)} />
@@ -159,10 +304,10 @@ function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={handlePress}
-        style={styles.touchableReaction}
+        className="w-full h-full"
       >
-        <View style={styles.reactionShadow} />
-        <View style={styles.reactionContent}>
+        <View className="absolute top-1 left-1 w-full h-full bg-neo-shadow rounded-xl" />
+        <View className="w-full h-full bg-neo-card border-2 border-neo-border rounded-xl justify-center items-center">
           <Ionicons name={icon} size={28} color={color} />
         </View>
       </TouchableOpacity>
@@ -170,7 +315,7 @@ function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
   );
 }
 
-function FlyingEmoji({ icon, color, onComplete }: { icon: any, color: string, onComplete: () => void }) {
+function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; color: string; onComplete: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -197,136 +342,22 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: any, color: string, on
   });
 
   return (
-    <Animated.View style={[
-      styles.flyingEmoji,
-      {
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 100,
+        pointerEvents: 'none',
         transform: [{ translateY }, { scale }],
         opacity
-      }
-    ]}>
-      <Ionicons name={icon} size={28} color={color} />
+      }}
+    >
+      <Ionicons name={icon as IconName} size={28} color={color} />
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.neo.background, // Beige
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    width: '100%',
-    paddingBottom: 20,
-    paddingTop: 20,
-  },
-  header: {
-    width: '100%',
-    alignItems: 'flex-start',
-  },
-  criteriaLabel: {
-    fontSize: 28,
-    fontFamily: 'Nunito_700Bold',
-    color: '#000',
-    textAlign: 'left',
-  },
-  winnerContainer: {
-    width: '100%',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  winnerText: {
-    fontSize: 18,
-    fontFamily: 'Nunito_700Bold',
-    marginBottom: 5,
-    color: '#000',
-    lineHeight: 24,
-  },
-  imageContainer: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: '#fff',
-    borderWidth: 2, // Neo border
-    borderColor: Colors.neo.border,
-    marginBottom: 5,
-    overflow: 'hidden',
-  },
-  winnerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  // NeoView handles container styles, but we can override if needed
-  commentNeoView: {
-    width: '100%',
-    backgroundColor: '#FFF5EB',
-  },
-  commentLabel: {
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-    color: '#C89B7B',
-    marginBottom: 4,
-  },
-  commentText: {
-    fontSize: 18,
-    fontFamily: 'Nunito_600SemiBold',
-    color: '#C89B7B',
-    lineHeight: 24,
-  },
-  footerContainer: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 10,
-  },
-  reactionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 5,
-    zIndex: 10, // Ensure reactions are above other things if they fly out?
-  },
-  // Custom Neo Button Styles for Icons
-  reactionContainer: {
-    width: 60,
-    height: 60,
-    position: 'relative',
-    // No overflow hidden so emoji can fly out
-  },
-  touchableReaction: {
-    width: '100%',
-    height: '100%',
-  },
-  reactionShadow: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.neo.shadow,
-    borderRadius: 12,
-  },
-  reactionContent: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.neo.card,
-    borderWidth: 2,
-    borderColor: Colors.neo.border,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  flyingEmoji: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0, // Center horizontally in container
-    bottom: 0, // Center vertically in container
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100, // Top
-    pointerEvents: 'none', // Don't block clicks while flying (though it moves fast)
-  },
-  nextButton: {
-    width: '100%',
-  }
-});

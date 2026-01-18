@@ -176,10 +176,10 @@ export interface GameCompletePayload {
     finalStory: string;
 }
 
-// Final awards payload
+// Final awards payload - single winner for each award
 export interface FinalAwardsPayload {
-    judgesFavorite: Array<{ playerId: string; name: string; wins: number }>;
-    mostClueless: Array<{ playerId: string; name: string; wins: number }>;
+    judgesFavorite: { playerId: string; name: string; wins: number } | null;
+    mostClueless: { playerId: string; name: string; wins: number } | null;
 }
 
 // Rejoin payload

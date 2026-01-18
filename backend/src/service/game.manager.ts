@@ -27,6 +27,7 @@ export class GameManager {
     private games: Map<string, GameState> = new Map();
     private roundTimers: Map<string, NodeJS.Timeout> = new Map();
     private tickIntervals: Map<string, NodeJS.Timeout> = new Map();
+    private nextRoundReady: Map<string, Set<string>> = new Map();
 
     // Callbacks for socket events
     private onTick: ((lobbyCode: string, remainingSeconds: number) => void) | undefined = undefined;
@@ -92,6 +93,77 @@ export class GameManager {
     }
 
     /**
+     * End a round exactly once (deadline, all-submitted, disconnect).
+     * This prevents duplicate judging/results/next-round emits caused by race conditions.
+     */
+    private tryEndRound(lobbyCode: string): boolean {
+        const game = this.games.get(lobbyCode);
+        if (!game) return false;
+        if (game.status !== 'round') return false;
+
+        // Lock the round immediately to prevent double-trigger
+        game.status = 'judging';
+        this.clearTimers(lobbyCode);
+
+        if (this.onRoundEnd) {
+            this.onRoundEnd(lobbyCode);
+        }
+
+        return true;
+    }
+
+    /**
+     * Reset next-round readiness tracking for a lobby.
+     * Call after broadcasting a round result (or when starting a new round).
+     */
+    resetNextRoundReady(lobbyCode: string): void {
+        this.nextRoundReady.set(lobbyCode, new Set());
+    }
+
+    /**
+     * Mark a player as ready to proceed from results -> next round/complete.
+     * Returns current counts for UI.
+     */
+    setPlayerReadyForNextRound(lobbyCode: string, playerId: string): { readyCount: number; totalPlayers: number; allReady: boolean } {
+        const game = this.games.get(lobbyCode);
+        if (!game) {
+            return { readyCount: 0, totalPlayers: 0, allReady: false };
+        }
+
+        if (!this.nextRoundReady.has(lobbyCode)) {
+            this.nextRoundReady.set(lobbyCode, new Set());
+        }
+
+        const readySet = this.nextRoundReady.get(lobbyCode)!;
+        readySet.add(playerId);
+
+        const totalPlayers = game.players.size;
+        const readyCount = readySet.size;
+        const allReady = totalPlayers > 0 && readyCount >= totalPlayers;
+
+        return { readyCount, totalPlayers, allReady };
+    }
+
+    getNextRoundReadyStatus(lobbyCode: string): { readyCount: number; totalPlayers: number; allReady: boolean } {
+        const game = this.games.get(lobbyCode);
+        if (!game) return { readyCount: 0, totalPlayers: 0, allReady: false };
+
+        const readySet = this.nextRoundReady.get(lobbyCode) ?? new Set<string>();
+        const totalPlayers = game.players.size;
+        const readyCount = readySet.size;
+        const allReady = totalPlayers > 0 && readyCount >= totalPlayers;
+        return { readyCount, totalPlayers, allReady };
+    }
+
+    removePlayerFromGame(lobbyCode: string, playerId: string): void {
+        const game = this.games.get(lobbyCode);
+        if (!game) return;
+
+        game.players.delete(playerId);
+        this.nextRoundReady.get(lobbyCode)?.delete(playerId);
+    }
+
+    /**
      * Start the round timer
      */
     private startRoundTimer(lobbyCode: string) {
@@ -116,10 +188,7 @@ export class GameManager {
             }
 
             if (remaining <= 0) {
-                this.clearTimers(lobbyCode);
-                if (this.onRoundEnd) {
-                    this.onRoundEnd(lobbyCode);
-                }
+                this.tryEndRound(lobbyCode);
             }
         }, 1000);
 
@@ -167,10 +236,7 @@ export class GameManager {
 
         // Check if all players have submitted
         if (this.allPlayersSubmitted(lobbyCode)) {
-            this.clearTimers(lobbyCode);
-            if (this.onRoundEnd) {
-                this.onRoundEnd(lobbyCode);
-            }
+            this.tryEndRound(lobbyCode);
         }
 
         return true;
@@ -294,6 +360,7 @@ export class GameManager {
         game.roundDeadline = Date.now() + (game.roundTimeSeconds * 1000);
         game.status = 'round';
 
+        this.resetNextRoundReady(lobbyCode);
         this.startRoundTimer(lobbyCode);
 
         return game;
@@ -393,15 +460,23 @@ export class GameManager {
         const maxWins = Math.max(...players.map(p => p.winCount));
         const minWins = Math.min(...players.map(p => p.winCount));
 
-        // Judge's Favorite: player(s) with most wins
-        const judgesFavorite = players
-            .filter(p => p.winCount === maxWins && maxWins > 0)
-            .map(p => ({ playerId: p.id, name: p.name, wins: p.winCount }));
+        // Judge's Favorite: pick ONE player with most wins (random if tied)
+        const favoritePool = players.filter(p => p.winCount === maxWins && maxWins > 0);
+        const favorite = favoritePool.length > 0
+            ? favoritePool[Math.floor(Math.random() * favoritePool.length)]
+            : null;
+        const judgesFavorite = favorite
+            ? { playerId: favorite.id, name: favorite.name, wins: favorite.winCount }
+            : null;
 
-        // Most Clueless: player(s) with fewest wins (including 0)
-        const mostClueless = players
-            .filter(p => p.winCount === minWins && minWins < maxWins)
-            .map(p => ({ playerId: p.id, name: p.name, wins: p.winCount }));
+        // Most Clueless: pick ONE player with fewest wins (random if tied)
+        const cluelessPool = players.filter(p => p.winCount === minWins && minWins < maxWins);
+        const clueless = cluelessPool.length > 0
+            ? cluelessPool[Math.floor(Math.random() * cluelessPool.length)]
+            : null;
+        const mostClueless = clueless
+            ? { playerId: clueless.id, name: clueless.name, wins: clueless.winCount }
+            : null;
 
         return { judgesFavorite, mostClueless };
     }
@@ -412,6 +487,7 @@ export class GameManager {
     endGame(lobbyCode: string): void {
         this.clearTimers(lobbyCode);
         this.games.delete(lobbyCode);
+        this.nextRoundReady.delete(lobbyCode);
     }
 
     /**
@@ -428,11 +504,8 @@ export class GameManager {
         }
 
         // Check if all remaining connected players have submitted
-        if (this.allPlayersSubmitted(lobbyCode) && game.status === 'round') {
-            this.clearTimers(lobbyCode);
-            if (this.onRoundEnd) {
-                this.onRoundEnd(lobbyCode);
-            }
+        if (this.allPlayersSubmitted(lobbyCode)) {
+            this.tryEndRound(lobbyCode);
         }
     }
 

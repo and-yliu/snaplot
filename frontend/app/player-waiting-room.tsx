@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { View, Text, Alert } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { View, Text, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ export default function PlayerWaitingRoomScreen() {
 
     const router = useRouter();
 
+    const nickname = params.nickname;
     const roomPin = params.roomPin;
 
     const { lobbyState, error, setReady, leaveLobby, socket, pendingNavigation, clearPendingNavigation } = useSocket();
@@ -24,6 +25,20 @@ export default function PlayerWaitingRoomScreen() {
     const currentPlayerId = socket?.id;
     const currentPlayer = lobbyState?.players?.find(p => p.id === currentPlayerId);
     const isReady = currentPlayer?.isReady ?? false;
+
+    const hasSwitchedToHostRef = useRef(false);
+    const switchToHost = useCallback(
+        (pin: string) => {
+            if (hasSwitchedToHostRef.current) return;
+            hasSwitchedToHostRef.current = true;
+            clearPendingNavigation();
+            router.replace({
+                pathname: '/host-waiting-room',
+                params: { roomPin: pin, nickname },
+            });
+        },
+        [clearPendingNavigation, router, nickname]
+    );
 
     // Use lobby state if available, otherwise show defaults
     const rounds = lobbyState?.settings?.rounds ?? 3;
@@ -38,16 +53,28 @@ export default function PlayerWaitingRoomScreen() {
 
     const handleLeaveRoom = () => {
         leaveLobby();
-        router.replace('/');
+        router.back();
     };
 
     // Navigate to game when it starts
     useEffect(() => {
+        if (pendingNavigation && pendingNavigation.type === 'host-waiting-room') {
+            switchToHost(pendingNavigation.roomPin);
+            return;
+        }
+
         if (pendingNavigation && pendingNavigation.type === 'game') {
             clearPendingNavigation();
             router.push('/game');
         }
-    }, [pendingNavigation, clearPendingNavigation, router]);
+    }, [pendingNavigation, clearPendingNavigation, router, switchToHost]);
+
+    useEffect(() => {
+        if (!lobbyState?.code) return;
+        if (!currentPlayerId) return;
+        if (lobbyState.hostId !== currentPlayerId) return;
+        switchToHost(lobbyState.code);
+    }, [lobbyState?.code, lobbyState?.hostId, currentPlayerId, switchToHost]);
 
     // Show errors
     useEffect(() => {
@@ -58,9 +85,22 @@ export default function PlayerWaitingRoomScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-neo-background">
-            <View className="flex-1 w-full items-center p-5">
+            <View className="absolute top-14 left-6 z-50">
+                <TouchableOpacity
+                    onPress={handleLeaveRoom}
+                    activeOpacity={0.8}
+                    className="w-10 h-10 relative"
+                >
+                    <View className="absolute top-[2px] left-[2px] right-[-2px] bottom-[-2px] bg-neo-shadow rounded-md" />
+                    <View className="w-full h-full bg-neo-card border-2 border-neo-border items-center justify-center rounded-md">
+                        <Ionicons name="chevron-back" size={24} color={Colors.neo.text} />
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            <View className="flex-1 w-full items-center p-5 pt-16">
                 {/* Header Section */}
-                <View className="items-center mb-8">
+                <View className="items-center mb-6 gap-4">
                     <Text
                         className="text-lg mb-1 text-neo-text"
                         style={{ fontFamily: 'Nunito_700Bold' }}
@@ -68,7 +108,7 @@ export default function PlayerWaitingRoomScreen() {
                         ROOM PIN:
                     </Text>
                     <Text
-                        className="text-5xl text-neo-text"
+                        className="text-5xl text-neo-text pt-2"
                         style={{ fontFamily: 'Nunito_700Bold' }}
                     >
                         {roomPin}
@@ -163,12 +203,7 @@ export default function PlayerWaitingRoomScreen() {
             </View>
 
             {/* Footer */}
-            <View className="p-5 pb-24 gap-4">
-                <NeoButton
-                    title="LEAVE ROOM"
-                    onPress={handleLeaveRoom}
-                    variant="outline"
-                />
+            <View className="p-5 gap-4">
                 <NeoButton
                     title={isReady ? "READY ✓" : "READY"}
                     onPress={handleReady}

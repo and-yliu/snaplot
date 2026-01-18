@@ -54,10 +54,7 @@ export default function JoinScreen() {
   return (
     <SafeAreaView className="flex-1 bg-neo-background">
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1"
-        >
+        <View className="flex-1">
           <View className="flex-1 items-center justify-center px-6">
             <Text
               className="text-2xl text-center mb-5 text-neo-text"
@@ -95,7 +92,7 @@ export default function JoinScreen() {
               />
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
   );

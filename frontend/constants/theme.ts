@@ -26,7 +26,7 @@ export const Colors = {
     tabIconSelected: tintColorDark,
   },
   neo: {
-    primary: '#A881EA', // Lavender
+    primary: '#4CAF50', // Green
     secondary: '#FFA6C9', // Soft Pink
     tertiary: '#FCE762', // Soft Yellow
     text: '#000000',

@@ -72,10 +72,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.neo.background }}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1 w-full"
-        >
+        <View className="flex-1 w-full">
           <View className="flex-1 items-center justify-center px-6">
             <View className="items-center mb-8 -mt-36">
               <Image
@@ -104,6 +101,7 @@ export default function HomeScreen() {
                 value={nickname}
                 onChangeText={setNickname}
                 autoCorrect={false}
+                rounded="none"
               />
             </View>
 
@@ -123,9 +121,15 @@ export default function HomeScreen() {
                 variant="outline"
                 style={fullWidthButtonStyle}
               />
+              <NeoButton
+                title="📖 Test Story"
+                onPress={() => router.push('/story-result')}
+                variant="outline"
+                style={fullWidthButtonStyle}
+              />
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
   );
