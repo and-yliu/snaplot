@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapPlot Thumbnail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Nunito:wght@600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #F0F2F5;
+            /* Neo background color approximation */
+            --yellow: #FCE762;
+            --coral: #FF6B6B;
+            --green: #4CAF50;
+            --sky: #87CEEB;
+            --text-yellow: #FFEB3B;
+            --border: #000000;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        /* Floating Background */
+        .floating-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .float-item {
+            position: absolute;
+            opacity: 0.3;
+            animation: float-vertical 4s ease-in-out infinite, float-horizontal 6s ease-in-out infinite;
+        }
+
+        .img-container {
+            background-color: #FFFFFF;
+            border: 3px solid var(--border);
+            box-shadow: 4px 4px 0 var(--border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+        }
+
+        .img-container img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            /* Essential for pixel art */
+        }
+
+        .tag-container {
+            background-color: var(--text-yellow);
+            padding: 6px 12px;
+            border: 2px solid var(--border);
+            box-shadow: 3px 3px 0 var(--border);
+            font-family: 'Audiowide', cursive;
+            color: var(--border);
+            font-size: 20px;
+        }
+
+        @keyframes float-vertical {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        @keyframes float-horizontal {
+
+            0%,
+            100% {
+                margin-left: 0;
+            }
+
+            50% {
+                margin-left: 10px;
+            }
+        }
+
+        /* LOGO STYLES */
+        .logo-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: scale(1.5);
+            /* Make it bigger for thumbnail */
+        }
+
+        .snap-box {
+            background-color: var(--yellow);
+            border: 4px solid var(--border);
+            padding: 8px 24px;
+            box-shadow: 6px 6px 0 var(--border);
+            transform: rotate(-3deg);
+            z-index: 2;
+        }
+
+        .snap-text {
+            font-family: 'Audiowide', cursive;
+            font-size: 52px;
+            color: var(--border);
+            letter-spacing: 4px;
+            margin: 0;
+            line-height: 1;
+        }
+
+        .plot-box {
+            background-color: var(--coral);
+            border: 4px solid var(--border);
+            padding: 8px 24px;
+            margin-top: -12px;
+            margin-left: 20px;
+            box-shadow: 6px 6px 0 var(--border);
+            transform: rotate(2deg);
+            z-index: 1;
+        }
+
+        .plot-text {
+            font-family: 'Audiowide', cursive;
+            font-size: 52px;
+            color: #FFFFFF;
+            letter-spacing: 4px;
+            margin: 0;
+            line-height: 1;
+        }
+
+        .camera-icon {
+            position: absolute;
+            top: -20px;
+            right: -10px;
+            z-index: 3;
+            transform: rotate(15deg);
+        }
+
+        .camera-body {
+            width: 44px;
+            height: 32px;
+            background-color: var(--green);
+            border: 3px solid var(--border);
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 3px 3px 0 var(--border);
+        }
+
+        .camera-lens {
+            width: 16px;
+            height: 16px;
+            background-color: #000000;
+            border-radius: 50%;
+            border: 2px solid #FFFFFF;
+        }
+
+        .decor-dot {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: var(--sky);
+            border: 2px solid var(--border);
+            top: 100px;
+            right: -15px;
+            transform: scale(0);
+            animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards 0.4s;
+        }
+
+        .decor-line {
+            position: absolute;
+            width: 40px;
+            height: 4px;
+            background-color: var(--border);
+            bottom: -20px;
+            left: 20px;
+            transform: rotate(-10deg);
+        }
+
+        @keyframes pop-in {
+            to {
+                transform: scale(1);
+            }
+        }
+
+        /* Specific Float Items Positioning - Moved closer to center */
+        /* Left Column */
+        .item-1 {
+            left: 15%;
+            top: 20%;
+            transform: rotate(-15deg);
+        }
+
+        .item-2 {
+            left: 20%;
+            top: 42%;
+            transform: rotate(-20deg);
+        }
+
+        .item-3 {
+            left: 18%;
+            top: 75%;
+            transform: rotate(5deg);
+        }
+
+        .item-4 {
+            left: 25%;
+            top: 65%;
+            transform: rotate(5deg);
+        }
+
+        /* Right Column */
+        .item-5 {
+            left: 75%;
+            top: 25%;
+            transform: rotate(10deg);
+        }
+
+        .item-6 {
+            left: 72%;
+            top: 45%;
+            transform: rotate(15deg);
+        }
+
+        .item-7 {
+            left: 65%;
+            top: 70%;
+            transform: rotate(-10deg);
+        }
+
+        .item-8 {
+            left: 72%;
+            top: 80%;
+            transform: rotate(-10deg);
+        }
+
+        /* Center / Additional Fillers */
+        .item-9 {
+            left: 45%;
+            top: 12%;
+            transform: rotate(0deg);
+        }
+
+        /* New Items */
+        .item-10 {
+            left: 30%;
+            top: 30%;
+            transform: rotate(10deg);
+        }
+
+        .item-11 {
+            left: 50%;
+            top: 82%;
+            transform: rotate(-5deg);
+        }
+
+        .item-12 {
+            left: 80%;
+            top: 60%;
+            transform: rotate(15deg);
+        }
+
+        .item-13 {
+            left: 10%;
+            top: 55%;
+            transform: rotate(-12deg);
+        }
+
+        .item-14 {
+            left: 55%;
+            top: 18%;
+            transform: rotate(-8deg);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Floating Background -->
+    <div class="floating-container">
+        <!-- Item 1: Coffee -->
+        <div class="float-item img-container item-1" style="animation-delay: 0s;">
+            <img src="/public/images/pixel-coffee.png" alt="Coffee">
+        </div>
+
+        <!-- Item 2: PLOT -->
+        <div class="float-item tag-container item-2" style="animation-delay: 0.6s;">PLOT</div>
+
+        <!-- Item 3: Plant -->
+        <div class="float-item img-container item-3" style="animation-delay: 0.2s;">
+            <img src="/public/images/pixel-plant.png" alt="Plant">
+        </div>
+
+        <!-- Item 4: CREATE -->
+        <div class="float-item tag-container item-4" style="animation-delay: 1.2s;">CREATE</div>
+
+        <!-- Item 5: Gameboy -->
+        <div class="float-item img-container item-5" style="animation-delay: 0.5s;">
+            <img src="/public/images/pixel-gameboy.png" alt="Gameboy">
+        </div>
+
+        <!-- Item 6: SNAP -->
+        <div class="float-item tag-container item-6" style="animation-delay: 0.3s;">SNAP</div>
+
+        <!-- Item 7: FUN -->
+        <div class="float-item tag-container item-7" style="animation-delay: 0.15s;">FUN</div>
+
+        <!-- Item 8: Book -->
+        <div class="float-item img-container item-8" style="animation-delay: 0.8s;">
+            <img src="/public/images/pixel-book.png" alt="Book">
+        </div>
+
+        <!-- Item 9: Cat -->
+        <div class="float-item img-container item-9" style="animation-delay: 1s;">
+            <img src="/public/images/pixel-cat.png" alt="Cat">
+        </div>
+
+        <!-- NEW ITEMS -->
+        <!-- Item 10: PLAY -->
+        <div class="float-item tag-container item-10" style="animation-delay: 0.9s;">PLAY</div>
+
+        <!-- Item 11: WIN -->
+        <div class="float-item tag-container item-11" style="animation-delay: 0.4s;">WIN</div>
+
+        <!-- Item 12: Coffee (Duplicate) -->
+        <div class="float-item img-container item-12" style="animation-delay: 1.1s;">
+            <img src="/public/images/pixel-coffee.png" alt="Coffee">
+        </div>
+
+        <!-- Item 13: Plant (Duplicate) -->
+        <div class="float-item img-container item-13" style="animation-delay: 1.3s;">
+            <img src="/public/images/pixel-plant.png" alt="Plant">
+        </div>
+
+        <!-- Item 14: DREAM -->
+        <div class="float-item tag-container item-14" style="animation-delay: 0.7s;">DREAM</div>
+
+    </div>
+
+    <!-- Main Logo -->
+    <div class="logo-container">
+        <div class="snap-box">
+            <h1 class="snap-text">SNAP</h1>
+        </div>
+        <div class="plot-box">
+            <h1 class="plot-text">PLOT</h1>
+        </div>
+
+        <div class="camera-icon">
+            <div class="camera-body">
+                <div class="camera-lens"></div>
+            </div>
+        </div>
+
+        <div class="decor-dot"></div>
+        <div class="decor-line"></div>
+    </div>
+
+</body>
+
+</html>
