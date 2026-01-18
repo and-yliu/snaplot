@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, GestureResponderEvent, View } from 'react-native';
+import { TouchableOpacity, Text, ViewStyle, GestureResponderEvent, View } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 interface NeoButtonProps {
@@ -6,12 +6,21 @@ interface NeoButtonProps {
   onPress: (event: GestureResponderEvent) => void;
   variant?: 'primary' | 'secondary' | 'outline';
   style?: ViewStyle;
+  className?: string;
   backgroundColor?: string;
   textColor?: string;
   disabled?: boolean;
 }
 
-export function NeoButton({ title, onPress, variant = 'primary', style, backgroundColor, textColor, disabled }: NeoButtonProps) {
+export function NeoButton({
+  title,
+  onPress,
+  variant = 'primary',
+  style,
+  className,
+  backgroundColor,
+  textColor,
+}: NeoButtonProps) {
   const getBackgroundColor = () => {
     if (disabled) return '#E0E0E0'; // Fallback if disabled color not defined
     if (backgroundColor) return backgroundColor;
@@ -33,46 +42,32 @@ export function NeoButton({ title, onPress, variant = 'primary', style, backgrou
     return Colors.neo.text;
   };
 
+  const backgroundClassName =
+    variant === 'secondary'
+      ? 'bg-neo-secondary'
+      : variant === 'outline'
+        ? 'bg-neo-card'
+        : 'bg-neo-primary';
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
-      disabled={disabled}
-      style={[styles.container, style, disabled && { opacity: 0.7 }]}
+      className={`relative h-[50px] ${className ?? ''}`}
+      style={style}
     >
-      <View style={[styles.shadow, disabled && { display: 'none' }]} />
-      <View style={[styles.content, { backgroundColor: getBackgroundColor(), transform: disabled ? [{ translateY: 4 }, { translateX: 4 }] : [] }]}>
-        <Text style={[styles.text, { color: getTextColor() }]}>{title}</Text>
+      <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-none" />
+      <View
+        className={`h-full border-2 border-neo-border items-center justify-center rounded-none ${backgroundClassName}`}
+        style={backgroundColor ? { backgroundColor: getBackgroundColor() } : undefined}
+      >
+        <Text
+          className="text-base text-center text-neo-text"
+          style={{ fontFamily: 'Nunito_700Bold', color: getTextColor() }}
+        >
+          {title}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-    height: 50,
-  },
-  shadow: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    right: -4,
-    bottom: -4,
-    backgroundColor: Colors.neo.shadow,
-    borderRadius: 0,
-  },
-  content: {
-    height: '100%',
-    borderRadius: 0,
-    borderWidth: 2,
-    borderColor: Colors.neo.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-    textAlign: 'center',
-  },
-});

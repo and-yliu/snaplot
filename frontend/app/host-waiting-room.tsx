@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoCounter } from '@/components/ui/NeoCounter';
 import { Colors } from '@/constants/theme';
+import { useSocket } from '@/hooks/useSocket';
 
 export default function HostWaitingRoomScreen() {
     const params = useLocalSearchParams<{
@@ -14,55 +15,91 @@ export default function HostWaitingRoomScreen() {
         roomPin?: string;
     }>();
     const router = useRouter();
+    const router = useRouter();
 
     const nickname = params.nickname;
-    const roomPin = params.roomPin || '4921'; // Use provided PIN or generate one
+    const { lobbyState, error, updateSettings, startGame, gameStart } = useSocket();
 
-    const [rounds, setRounds] = useState(3);
-    const [timer, setTimer] = useState(30);
+    const roomPin = params.roomPin || lobbyState?.code || '----';
+    const players = lobbyState?.players || [{ id: '1', name: nickname || 'Host', isReady: true }];
 
-    // Mock players list
-    const players = [
-        { id: '1', name: nickname || 'Host', isReady: true },
-        { id: '2', name: 'Alice', isReady: true },
-        { id: '3', name: 'Bob', isReady: true }, // Ready
-    ];
+    const [rounds, setRounds] = useState(lobbyState?.settings?.rounds || 3);
+    const [timer, setTimer] = useState(lobbyState?.settings?.roundTimeSeconds || 30);
 
-    // Check if all players are ready
-    const allReady = players.every(player => player.isReady);
-
-    const handleStartGame = () => {
-        // Only navigate if all players are ready
-        if (allReady) {
-            router.push('/game');
+    // Update local state when lobby state changes
+    useEffect(() => {
+        if (lobbyState?.settings) {
+            setRounds(lobbyState.settings.rounds);
+            setTimer(lobbyState.settings.roundTimeSeconds);
         }
+    }, [lobbyState?.settings]);
+
+    // Handle rounds change - update server
+    const handleRoundsChange = (value: number) => {
+        setRounds(value);
+        updateSettings({ rounds: value });
     };
 
+    // Handle timer change - update server
+    const handleTimerChange = (value: number) => {
+        setTimer(value);
+        updateSettings({ roundTimeSeconds: value });
+    };
+
+    // Handle start game
+    const handleStartGame = () => {
+        startGame();
+    };
+
+    // Navigate to game when it starts
+    useEffect(() => {
+        if (gameStart) {
+            router.push('/game');
+        }
+    }, [gameStart]);
+
+    // Show errors
+    useEffect(() => {
+        if (error) {
+            Alert.alert('Error', error);
+        }
+    }, [error]);
+
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
+        <SafeAreaView className="flex-1 bg-neo-background">
+            <View className="flex-1 w-full items-center p-5">
                 {/* Header Section */}
-                <View style={styles.header}>
-                    <Text style={styles.roomCodeLabel}>ROOM PIN:</Text>
-                    <Text style={styles.roomCode}>{roomPin}</Text>
+                <View className="items-center mb-6 gap-4">
+                    <Text
+                        className="text-lg text-neo-text"
+                        style={{ fontFamily: 'Nunito_700Bold' }}
+                    >
+                        ROOM PIN:
+                    </Text>
+                    <Text
+                        className="text-5xl text-neo-text pt-2"
+                        style={{ fontFamily: 'Nunito_700Bold' }}
+                    >
+                        {roomPin}
+                    </Text>
                 </View>
 
                 {/* Game Settings - Host can change */}
-                <View style={styles.settingsContainer}>
-                    <View style={styles.settingRow}>
+                <View className="w-full mb-8 gap-4">
+                    <View className="h-[60px]">
                         <NeoCounter
                             label="ROUNDS"
                             value={rounds}
-                            onChange={setRounds}
+                            onChange={handleRoundsChange}
                             min={3}
                             max={6}
                         />
                     </View>
-                    <View style={styles.settingRow}>
+                    <View className="h-[60px]">
                         <NeoCounter
                             label="TIMER"
                             value={timer}
-                            onChange={setTimer}
+                            onChange={handleTimerChange}
                             min={15}
                             max={60}
                             step={15}
@@ -72,14 +109,33 @@ export default function HostWaitingRoomScreen() {
                 </View>
 
                 {/* Player List */}
-                <View style={styles.playerListContainer}>
-                    <Text style={styles.playerListTitle}>PLAYERS ({players.length}/8)</Text>
-                    <View style={styles.playersGrid}>
+                <View className="w-full mb-5">
+                    <Text
+                        className="text-lg mb-2 text-left text-neo-text"
+                        style={{ fontFamily: 'Nunito_700Bold' }}
+                    >
+                        PLAYERS ({players.length}/8)
+                    </Text>
+                    <View className="flex-row flex-wrap gap-2.5">
                         {players.map((player) => (
-                            <View key={player.id} style={styles.playerChip}>
-                                <Text style={styles.playerName}>{player.name}</Text>
+                            <View
+                                key={player.id}
+                                className="flex-row items-center bg-neo-card border-2 border-neo-border rounded-xl px-3 py-2"
+                                style={{
+                                    shadowColor: Colors.neo.shadow,
+                                    shadowOffset: { width: 2, height: 2 },
+                                    shadowOpacity: 1,
+                                    shadowRadius: 0,
+                                }}
+                            >
+                                <Text
+                                    className="text-base text-neo-text"
+                                    style={{ fontFamily: 'Nunito_600SemiBold' }}
+                                >
+                                    {player.name}
+                                </Text>
                                 {player.isReady ? (
-                                    <Ionicons name="checkmark-circle" size={20} color="green" style={styles.readyIcon} />
+                                    <Ionicons name="checkmark-circle" size={20} color="green" style={{ marginLeft: 6 }} />
                                 ) : null}
                             </View>
                         ))}
@@ -88,89 +144,13 @@ export default function HostWaitingRoomScreen() {
             </View>
 
             {/* Footer / Start Button */}
-            <View style={styles.footer}>
+            <View className="p-5 pb-10">
                 <NeoButton
                     title="START GAME"
                     onPress={handleStartGame}
                     variant="primary"
-                    disabled={!allReady}
                 />
             </View>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.neo.background,
-    },
-    content: {
-        flex: 1,
-        padding: 20,
-        alignItems: 'center',
-        width: '100%',
-    },
-    header: {
-        marginBottom: 30,
-        alignItems: 'center',
-    },
-    roomCodeLabel: {
-        fontSize: 18,
-        fontFamily: 'Nunito_700Bold',
-        marginBottom: 5,
-    },
-    roomCode: {
-        fontSize: 48,
-        fontFamily: 'Nunito_700Bold',
-    },
-    settingsContainer: {
-        width: '100%',
-        marginBottom: 30,
-        gap: 15,
-    },
-    settingRow: {
-        height: 60,
-    },
-    playerListContainer: {
-        width: '100%',
-        marginBottom: 20,
-    },
-    playerListTitle: {
-        fontSize: 18,
-        fontFamily: 'Nunito_700Bold',
-        marginBottom: 10,
-        textAlign: 'left',
-    },
-    playersGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    playerChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.neo.card,
-        borderWidth: 2,
-        borderColor: Colors.neo.border,
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        shadowColor: Colors.neo.shadow,
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-    },
-    playerName: {
-        fontSize: 16,
-        fontFamily: 'Nunito_600SemiBold',
-        color: Colors.neo.text,
-    },
-    readyIcon: {
-        marginLeft: 6,
-    },
-    footer: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-});
