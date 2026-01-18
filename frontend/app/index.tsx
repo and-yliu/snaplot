@@ -21,6 +21,7 @@ import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoInput } from '@/components/ui/NeoInput';
 import { useSocket } from '@/hooks/useSocket';
+import { FloatingBackground } from '@/components/FloatingBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const fullWidthButtonStyle = { width: '100%' } as const;
@@ -306,6 +307,9 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.neo.background }}>
+      {/* Floating Background Elements - Behind everything */}
+      <FloatingBackground />
+
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View className="flex-1 w-full">
           {/* Main content area with flex distribution */}
@@ -382,6 +386,8 @@ export default function HomeScreen() {
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
+
     </SafeAreaView>
   );
 }
+
