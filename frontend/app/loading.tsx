@@ -1,7 +1,9 @@
 import { View, Text, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useSocket } from '@/hooks/useSocket';
 
 const LOADING_TEXTS = [
     "The judge's brain is warming up...",
@@ -12,9 +14,42 @@ const LOADING_TEXTS = [
     "Ready to go..."
 ];
 
+const MIN_LOADING_TIME_MS = 3000;
+
 export default function LoadingScreen() {
+    const router = useRouter();
+    const { pendingNavigation, clearPendingNavigation } = useSocket();
+
+    // Track minimum loading time
+    const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+    const [gameReady, setGameReady] = useState(false);
+
     // Array of animated values for opacity, one for each line
     const opacityAnims = useRef(LOADING_TEXTS.map(() => new Animated.Value(0))).current;
+
+    // Start minimum timer
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setMinTimeElapsed(true);
+        }, MIN_LOADING_TIME_MS);
+
+        return () => clearTimeout(timer);
+    }, []);
+
+    // Listen for game start signal
+    useEffect(() => {
+        if (pendingNavigation && pendingNavigation.type === 'game') {
+            setGameReady(true);
+        }
+    }, [pendingNavigation]);
+
+    // Navigate to game when both conditions are met
+    useEffect(() => {
+        if (minTimeElapsed && gameReady) {
+            clearPendingNavigation();
+            router.replace('/game');
+        }
+    }, [minTimeElapsed, gameReady, clearPendingNavigation, router]);
 
     useEffect(() => {
         // Create a sequence of animations

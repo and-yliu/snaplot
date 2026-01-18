@@ -24,6 +24,7 @@
  * - lobby:player-left    Player left notification  
  * - lobby:host-changed   Host changed notification (host left)
  * - lobby:error          Error message
+ * - game:loading         All players should enter loading screen (before story generation)
  * - game:start           Game started with story template and blanks
  * - game:round           Current round's theme and criteria
  * - game:tick            Timer countdown (seconds remaining)
@@ -261,6 +262,9 @@ export function setupSocketHandlers(io: Server): void {
 
                 // Mark lobby as in-game
                 lobbyManager.setLobbyInGame(lobbyCode);
+
+                // Notify all players to enter loading screen immediately
+                io.to(lobbyCode).emit('game:loading');
 
                 // Start the game (async due to story generation)
                 const game: GameState = await gameManager.startGame(lobby);

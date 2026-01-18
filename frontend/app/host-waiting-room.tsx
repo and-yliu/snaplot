@@ -48,6 +48,7 @@ export default function HostWaitingRoomScreen() {
     // Handle start game
     const handleStartGame = () => {
         startGame();
+        router.push('/loading');
     };
 
     const handleLeaveRoom = () => {
@@ -60,13 +61,7 @@ export default function HostWaitingRoomScreen() {
     const hostPlayer = lobbyState?.players?.find(p => p.id === currentPlayerId);
     const isHostReady = hostPlayer?.isReady ?? false;
 
-    // Navigate to game when it starts
-    useEffect(() => {
-        if (pendingNavigation && pendingNavigation.type === 'game') {
-            clearPendingNavigation();
-            router.push('/game');
-        }
-    }, [pendingNavigation, clearPendingNavigation, router]);
+    // Note: Navigation to game is handled by loading screen
 
     // Show errors
     useEffect(() => {

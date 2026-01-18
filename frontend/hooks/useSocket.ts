@@ -93,6 +93,7 @@ export interface FinalAwardsPayload {
 export type PendingNavigation =
     | { type: 'host-waiting-room'; roomPin: string }
     | { type: 'player-waiting-room'; roomPin: string }
+    | { type: 'loading' }
     | { type: 'game' }
     | { type: 'round-result' }
     | { type: 'story-result' }
@@ -208,6 +209,7 @@ function getSocket(): Socket {
             socketInstance.off('lobby:player-joined');
             socketInstance.off('lobby:player-left');
             socketInstance.off('lobby:host-changed');
+            socketInstance.off('game:loading');
             socketInstance.off('game:start');
             socketInstance.off('game:round');
             socketInstance.off('game:tick');
@@ -275,6 +277,13 @@ function getSocket(): Socket {
                     }
                 }
             );
+
+            socketInstance.on('game:loading', () => {
+                console.log('Game loading - all players to loading screen');
+                setGlobalState({
+                    pendingNavigation: { type: 'loading' }
+                });
+            });
 
             socketInstance.on('game:start', (payload: GameStartPayload) => {
                 console.log('Game started:', payload);

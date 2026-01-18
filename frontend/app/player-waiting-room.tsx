@@ -56,16 +56,16 @@ export default function PlayerWaitingRoomScreen() {
         router.back();
     };
 
-    // Navigate to game when it starts
+    // Navigate to loading/game when it starts
     useEffect(() => {
         if (pendingNavigation && pendingNavigation.type === 'host-waiting-room') {
             switchToHost(pendingNavigation.roomPin);
             return;
         }
 
-        if (pendingNavigation && pendingNavigation.type === 'game') {
+        if (pendingNavigation && pendingNavigation.type === 'loading') {
             clearPendingNavigation();
-            router.push('/game');
+            router.push('/loading');
         }
     }, [pendingNavigation, clearPendingNavigation, router, switchToHost]);
 

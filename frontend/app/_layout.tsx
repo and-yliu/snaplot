@@ -37,6 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="join" options={{ presentation: 'card', headerShown: false }} />
         <Stack.Screen name="host-waiting-room" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="player-waiting-room" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="loading" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="game" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="round-result" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="story-result" options={{ headerShown: false, gestureEnabled: false }} />
