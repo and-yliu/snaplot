@@ -10,7 +10,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { JudgeRoundInput, PlayerSubmission } from "../src/service/judge.service";
+import { judgeRound, JudgeRoundInput, PlayerSubmission } from "../src/service/judge.service";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -127,15 +127,10 @@ async function runTest() {
         console.log(`\n⚡ Running judge round...`);
         console.log(`   Theme: "${TEST_THEME}"`);
         console.log(`   Criteria: "${TEST_CRITERIA}"`);
-
-        // Create a new JudgeService instance with explicit API key
-        const { JudgeService } = await import("../src/service/judge.service");
-        const judgeServiceInstance = new JudgeService(process.env.OPENROUTER_API_KEY);
-
         console.log("⏳ This may take a moment...\n");
 
         const startTime = Date.now();
-        const result = await judgeServiceInstance.judgeRound(input);
+        const result = await judgeRound(input);
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
         console.log(`✅ Judge round completed in ${duration}s`);
