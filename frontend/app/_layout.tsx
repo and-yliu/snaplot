@@ -39,6 +39,7 @@ export default function RootLayout() {
         <Stack.Screen name="player-waiting-room" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="game/index" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="prizes" options={{ headerShown: false }} />
+        <Stack.Screen name="test-loading" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
