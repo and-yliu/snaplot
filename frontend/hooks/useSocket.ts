@@ -69,12 +69,33 @@ export interface NextRoundStatusPayload {
     totalPlayers: number;
 }
 
+// Story segment from recap service
+export interface StorySegment {
+    index: number;
+    lead: string;
+}
+
+// Game complete payload with AI recap
+export interface GameCompletePayload {
+    storyTemplate: string;
+    results: RoundResultPayload[];
+    segments: StorySegment[];
+    finalStory: string;
+}
+
+// Final awards payload
+export interface FinalAwardsPayload {
+    judgesFavorite: { playerId: string; name: string; wins: number } | null;
+    mostClueless: { playerId: string; name: string; wins: number } | null;
+}
+
 // Navigation types for pending navigation
 export type PendingNavigation =
     | { type: 'host-waiting-room'; roomPin: string }
     | { type: 'player-waiting-room'; roomPin: string }
     | { type: 'game' }
     | { type: 'round-result' }
+    | { type: 'story-result' }
     | null;
 
 // Server URL - update this to your backend URL
@@ -97,7 +118,9 @@ interface SocketState {
     roundResultContext: RoundPayload | null;
     nextRoundStatus: NextRoundStatusPayload | null;
     pendingNavigation: PendingNavigation;
-    remoteReactions: Array<{ id: string; icon: string; playerId: string }>;
+    remoteReactions: { id: string; icon: string; playerId: string }[];
+    gameComplete: GameCompletePayload | null;
+    awards: FinalAwardsPayload | null;
 }
 
 let globalState: SocketState = {
@@ -114,6 +137,8 @@ let globalState: SocketState = {
     nextRoundStatus: null,
     pendingNavigation: null,
     remoteReactions: [],
+    gameComplete: null,
+    awards: null,
 };
 
 const listeners = new Set<() => void>();
@@ -328,6 +353,19 @@ function getSocket(): Socket {
                 setGlobalState({ nextRoundStatus: payload });
             });
 
+            socketInstance.on('game:complete', (payload: GameCompletePayload) => {
+                console.log('Game complete:', payload);
+                setGlobalState({
+                    gameComplete: payload,
+                    pendingNavigation: { type: 'story-result' },
+                });
+            });
+
+            socketInstance.on('game:awards', (payload: FinalAwardsPayload) => {
+                console.log('Awards:', payload);
+                setGlobalState({ awards: payload });
+            });
+
             socketInstance.on('game:error', ({ message }: { message: string }) => {
                 console.log('Game error:', message);
                 setGlobalState({ error: message });
@@ -491,5 +529,7 @@ export function useSocket() {
         clearPendingNavigation,
         sendReaction,
         consumeReaction,
+        gameComplete: state.gameComplete,
+        awards: state.awards,
     };
 }

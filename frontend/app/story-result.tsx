@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/namespace
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,8 @@ import { useAudioPlayer } from 'expo-audio';
 
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
+
+import { useSocket, SERVER_URL } from '@/hooks/useSocket';
 
 // Mock Data
 const PROTAGONIST = "Kevin";
@@ -33,6 +35,7 @@ const SUMMARY_TEXT = `And that is why ${PROTAGONIST} is solely responsible for t
 export default function StoryResultScreen() {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { gameComplete, awards } = useSocket();
 
   // Audio Player
   const player = useAudioPlayer(require('@/assets/audios/ui-pop-sound-316482.mp3'));
@@ -41,6 +44,24 @@ export default function StoryResultScreen() {
     player.seekTo(0);
     player.play();
   }, [player]);
+
+  // Derive protagonist from mostClueless (troll) name
+  const protagonist = awards?.mostClueless?.name ?? 'The Adventurer';
+
+  // Map segments to story chunks with images from results
+  const storyChunks = useMemo(() => {
+    if (!gameComplete) return [];
+    return gameComplete.segments.map((seg, idx) => {
+      const result = gameComplete.results[seg.index];
+      return {
+        id: seg.index,
+        text: seg.lead,
+        image: result?.photoPath ? `${SERVER_URL}/${result.photoPath.replace(/^\/+/, '')}` : null,
+      };
+    });
+  }, [gameComplete]);
+
+  const summaryText = gameComplete?.finalStory ?? `And that concludes the legend of ${protagonist}.`;
 
   // State
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0); // 0, 1, 2
@@ -51,7 +72,7 @@ export default function StoryResultScreen() {
 
   const handleNext = () => {
     // Determine next state
-    if (currentChunkIndex < STORY_CHUNKS.length - 1) {
+    if (currentChunkIndex < storyChunks.length - 1) {
       setCurrentChunkIndex(prev => prev + 1);
     } else {
       setShowSummary(true);
@@ -83,10 +104,10 @@ export default function StoryResultScreen() {
           className="text-[28px] text-neo-text text-center mb-8 mt-2.5"
           style={{ fontFamily: 'Nunito_700Bold' }}
         >
-          The Legend of {PROTAGONIST}
+          The Legend of {protagonist}
         </Text>
 
-        {STORY_CHUNKS.map((chunk, index) => (
+        {storyChunks.map((chunk, index: number) => (
           (index <= currentChunkIndex) && (
             <StoryChunk
               key={chunk.id}
@@ -105,7 +126,7 @@ export default function StoryResultScreen() {
                 className="text-2xl text-neo-text text-center leading-8"
                 style={{ fontFamily: 'Nunito_700Bold' }}
               >
-                {SUMMARY_TEXT}
+                {summaryText}
               </Text>
             </NeoView>
 

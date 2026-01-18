@@ -1,17 +1,20 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
+import { useSocket } from '@/hooks/useSocket';
 
 export default function PrizesScreen() {
     const router = useRouter();
+    const { awards, leaveLobby } = useSocket();
 
     const handleReturnToRoom = () => {
-        router.back();
+        router.replace('/host-waiting-room');
     };
 
     const handleQuitRoom = () => {
+        leaveLobby();
         router.replace('/');
     };
 
@@ -28,32 +31,33 @@ export default function PrizesScreen() {
 
                 {/* Summary Items */}
                 <View className="flex-1 gap-8">
-                    <View>
-                        <Text
-                            className="text-xl text-neo-text mb-2"
-                            style={{ fontFamily: 'Nunito_600SemiBold' }}
-                        >
-                            Judge's Fav Target: <Text style={{ fontFamily: 'Nunito_400Regular' }}>Kvn</Text>
-                        </Text>
-                    </View>
+                    {awards?.judgesFavorite && (
+                        <View>
+                            <Text
+                                className="text-xl text-neo-text mb-2"
+                                style={{ fontFamily: 'Nunito_600SemiBold' }}
+                            >
+                                Judge's Fav Target: <Text style={{ fontFamily: 'Nunito_400Regular' }}>{awards.judgesFavorite.name}</Text>
+                            </Text>
+                            <Text className="text-neo-text opacity-60" style={{ fontFamily: 'Nunito_400Regular' }}>
+                                Won {awards.judgesFavorite.wins} rounds
+                            </Text>
+                        </View>
+                    )}
 
-                    <View>
-                        <Text
-                            className="text-xl text-neo-text mb-2"
-                            style={{ fontFamily: 'Nunito_600SemiBold' }}
-                        >
-                            The Most Clueless: <Text style={{ fontFamily: 'Nunito_400Regular' }}>Mob</Text>
-                        </Text>
-                    </View>
-
-                    <View>
-                        <Text
-                            className="text-xl text-neo-text mb-2"
-                            style={{ fontFamily: 'Nunito_600SemiBold' }}
-                        >
-                            Chaos Generator: <Text style={{ fontFamily: 'Nunito_400Regular' }}>SlayerXX</Text>
-                        </Text>
-                    </View>
+                    {awards?.mostClueless && (
+                        <View>
+                            <Text
+                                className="text-xl text-neo-text mb-2"
+                                style={{ fontFamily: 'Nunito_600SemiBold' }}
+                            >
+                                The Most Clueless: <Text style={{ fontFamily: 'Nunito_400Regular' }}>{awards.mostClueless.name}</Text>
+                            </Text>
+                            <Text className="text-neo-text opacity-60" style={{ fontFamily: 'Nunito_400Regular' }}>
+                                Won {awards.mostClueless.wins} rounds (story protagonist!)
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Footer Buttons */}
@@ -62,7 +66,7 @@ export default function PrizesScreen() {
                         title="Return to Room"
                         onPress={handleReturnToRoom}
                         variant="primary"
-                        // style={{ backgroundColor: '#C88A58' }} // Custom brownish color from image
+                    // style={{ backgroundColor: '#C88A58' }} // Custom brownish color from image
                     />
                     <NeoButton
                         title="Quit Room"
