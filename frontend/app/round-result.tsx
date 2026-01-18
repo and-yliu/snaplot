@@ -10,6 +10,24 @@ import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
 import { SERVER_URL, useSocket } from '@/hooks/useSocket';
 
+// Mock Data for Testing
+const MOCK_ROUND_RESULT = {
+  round: 1,
+  winnerName: 'Alice',
+  oneliner: "Even my grandma can beat your ass with you holding that.",
+  photoPath: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=3454&auto=format&fit=crop'
+};
+
+const MOCK_CONTEXT = {
+  criteria: "The Weakest",
+  theme: "Survival Kit"
+};
+
+const MOCK_NEXT_STATUS = {
+  readyCount: 3,
+  totalPlayers: 4
+};
+
 export default function RoundResultScreen() {
   const router = useRouter();
   const {
@@ -33,13 +51,22 @@ export default function RoundResultScreen() {
 
   const soundRef = useRef<Audio.Sound | null>(null);
 
-  const criteria = roundResultContext?.criteria ?? '';
-  const theme = roundResultContext?.theme ?? '';
-  const winnerName = roundResult?.winnerName ?? '';
+  // Determine if we are in mock mode (no real data)
+  const isMockMode = !roundResult;
+
+  const resultData = roundResult || MOCK_ROUND_RESULT;
+  const contextData = roundResultContext || MOCK_CONTEXT;
+  const statusData = nextRoundStatus || MOCK_NEXT_STATUS;
+
+  const criteria = contextData.criteria ?? '';
+  const theme = contextData.theme ?? '';
+  const winnerName = resultData.winnerName ?? '';
   const winnerText = theme ? `${winnerName} would use this: ${theme}` : `${winnerName} wins this round`;
-  const comment = roundResult?.oneliner ?? '';
-  const winnerPhotoUrl = roundResult?.photoPath
-    ? `${SERVER_URL}/${roundResult.photoPath.replace(/^\/+/, '')}`
+  const comment = resultData.oneliner ?? '';
+  const winnerPhotoUrl = resultData.photoPath
+    ? resultData.photoPath.startsWith('http')
+      ? resultData.photoPath
+      : `${SERVER_URL}/${resultData.photoPath.replace(/^\/+/, '')}`
     : null;
 
   // Load audio on mount
@@ -71,7 +98,8 @@ export default function RoundResultScreen() {
   }, [roundResult?.round, opacityAnim]);
 
   useEffect(() => {
-    if (!roundResult) return;
+    // In mock mode, we just run. In real mode, we wait for roundResult
+    if (!isMockMode && !roundResult) return;
     if (hasRun.current) return;
     hasRun.current = true;
 
@@ -162,7 +190,7 @@ export default function RoundResultScreen() {
             className="text-base text-neo-text/60"
             style={{ fontFamily: 'Nunito_600SemiBold' }}
           >
-            ROUND {roundResult?.round ?? 1} WINNER
+            ROUND {resultData?.round ?? 1} WINNER
           </Text>
         </View>
 
@@ -225,15 +253,14 @@ export default function RoundResultScreen() {
         )}
 
         {/* Judge's Comment - grouped with image */}
-        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 16 }}>
+        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 5 }}>
           {step >= 3 && (
-            <NeoView className="w-full bg-[#FFF5EB] p-4 mt-3">
-              <Text
+            <NeoView className="w-full bg-[#FFF5EB] mt-1">
+              <TypewriterText
+                text={`"${comment}"`}
                 className="text-xl text-[#4caf50]"
                 style={{ fontFamily: 'Nunito_600SemiBold', lineHeight: 26 }}
-              >
-                "{comment}"
-              </Text>
+              />
             </NeoView>
           )}
         </Animated.View>
@@ -255,7 +282,7 @@ export default function RoundResultScreen() {
             ))}
           </View>
 
-          <View className="flex-row justify-between w-full mb-2.5 z-10">
+          <View className="flex-row justify-between w-full mb-1 z-10">
             <NeoReactionButton icon="thumbs-up" color="#E8C547" onSend={sendReaction} />
             <NeoReactionButton icon="thumbs-down" color="#E8C547" onSend={sendReaction} />
             <NeoReactionButton icon="egg" color="#E8C547" onSend={sendReaction} />
@@ -266,7 +293,7 @@ export default function RoundResultScreen() {
             title={
               hasConfirmed
                 ? 'READY ✓'
-                : `READY (${nextRoundStatus?.readyCount ?? 0}/${nextRoundStatus?.totalPlayers ?? 0})`
+                : `READY (${statusData?.readyCount ?? 0}/${statusData?.totalPlayers ?? 0})`
             }
             onPress={handleReadyNextRound}
             variant="primary"
@@ -356,5 +383,29 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; col
     >
       <Ionicons name={icon as IconName} size={40} color={color} />
     </Animated.View>
+  );
+}
+
+function TypewriterText({ text, style, className }: { text: string, style?: any, className?: string }) {
+  const [displayedText, setDisplayedText] = useState('');
+
+  useEffect(() => {
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      if (currentIndex <= text.length) {
+        setDisplayedText(text.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 30); // Tuning speed
+
+    return () => clearInterval(intervalId);
+  }, [text]);
+
+  return (
+    <Text className={className} style={style}>
+      {displayedText}
+    </Text>
   );
 }
