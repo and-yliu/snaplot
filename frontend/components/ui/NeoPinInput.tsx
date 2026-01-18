@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, TextInput, StyleSheet, NativeSyntheticEvent, TextInputKeyPressEventData } from 'react-native';
 import { Colors } from '@/constants/theme';
-import { NeoView } from './NeoView';
+
 
 interface NeoPinInputProps {
   length?: number;
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.neo.border,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Nunito_700Bold',
     textAlign: 'center',
     color: Colors.neo.text,
     borderRadius: 0,

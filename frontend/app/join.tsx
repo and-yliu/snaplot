@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoPinInput } from '@/components/ui/NeoPinInput';
 
 export default function JoinScreen() {
-  const router = useRouter();
   const [pin, setPin] = useState('');
 
   const handleJoinRoom = () => {
@@ -69,14 +67,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 48,
-    color: Colors.neo.text,
+    fontFamily: 'Nunito_700Bold',
     textAlign: 'center',
+    marginBottom: 40,
+    color: Colors.neo.text,
   },
   inputContainer: {
     width: '100%',
-    marginBottom: 48,
+    marginBottom: 40,
     alignItems: 'center',
   },
   buttonContainer: {
