@@ -87,7 +87,7 @@ export default function PlayerWaitingRoomScreen() {
         <SafeAreaView className="flex-1 bg-neo-background">
             <View className="flex-1 w-full items-center p-5">
                 {/* Header Section */}
-                <View className="items-center mb-8">
+                <View className="items-center mb-6 gap-4">
                     <Text
                         className="text-lg mb-1 text-neo-text"
                         style={{ fontFamily: 'Nunito_700Bold' }}
@@ -95,7 +95,7 @@ export default function PlayerWaitingRoomScreen() {
                         ROOM PIN:
                     </Text>
                     <Text
-                        className="text-5xl text-neo-text"
+                        className="text-5xl text-neo-text pt-2"
                         style={{ fontFamily: 'Nunito_700Bold' }}
                     >
                         {roomPin}
@@ -190,7 +190,7 @@ export default function PlayerWaitingRoomScreen() {
             </View>
 
             {/* Footer */}
-            <View className="p-5 pb-24 gap-4">
+            <View className="p-5 gap-4">
                 <NeoButton
                     title="LEAVE ROOM"
                     onPress={handleLeaveRoom}

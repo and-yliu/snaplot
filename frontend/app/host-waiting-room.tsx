@@ -154,7 +154,7 @@ export default function HostWaitingRoomScreen() {
             </View>
 
             {/* Footer */}
-            <View className="p-5 pb-10 gap-4">
+            <View className="p-5 gap-4">
                 <NeoButton
                     title="LEAVE ROOM"
                     onPress={handleLeaveRoom}
