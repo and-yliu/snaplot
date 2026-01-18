@@ -2,7 +2,7 @@
  * Test Runner for Judge Service
  * 
  * This script reads all images from the uploads folder and runs
- * a complete judge round to test the multi-agent system.
+ * a complete judge round to test the 2-agent system (Judge + Bard).
  */
 
 // IMPORTANT: Load environment variables FIRST before any other imports
@@ -10,7 +10,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { judgeService, PlayerSubmission } from "../src/service/judge.service";
+import { JudgeRoundInput, PlayerSubmission } from "../src/service/judge.service";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -22,7 +22,10 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UPLOADS_DIR = path.join(__dirname, "..", "uploads");
-const TEST_RIDDLE = "Find something that can hold water but is not a cup";
+
+// Test configuration
+const TEST_THEME = "Something you would use when in a fight with crocodiles";
+const TEST_CRITERIA = "The weakest";
 
 // ============================================================================
 // Helper Functions
@@ -48,54 +51,29 @@ function getImageFiles(directory: string): string[] {
  */
 function createSubmissions(imagePaths: string[]): PlayerSubmission[] {
     return imagePaths.map((imagePath, index) => ({
-        player_id: `player_${index + 1}`,
-        image_base64: imagePath, // Note: This will be treated as image_path by the service
+        playerId: `player_${index + 1}`,
+        playerName: `Player ${index + 1}`,
+        photoLocation: imagePath,
     }));
 }
 
 /**
  * Pretty print the round results
  */
-function printResults(result: any) {
+function printResults(result: any, theme: string, criteria: string) {
     console.log("\n" + "=".repeat(80));
     console.log("🎮 JUDGE ROUND RESULTS");
     console.log("=".repeat(80) + "\n");
 
-    console.log(`📜 Riddle: "${result.riddle}"\n`);
+    console.log(`📜 Theme: "${theme}"`);
+    console.log(`📏 Criteria: "${criteria}"\n`);
 
     console.log("─".repeat(80));
-    console.log("🔍 SCOUT ANALYSES");
+    console.log("🏆 WINNER");
     console.log("─".repeat(80));
-    result.submissions.forEach((sub: any, idx: number) => {
-        console.log(`\n[${idx + 1}] Player: ${sub.player_id}`);
-        console.log(`    Description: ${sub.scout_analysis.description}`);
-        console.log(`    Scores: Match=${sub.scout_analysis.scores.match}/10, ` +
-            `Creativity=${sub.scout_analysis.scores.creativity}/10, ` +
-            `Aesthetic=${sub.scout_analysis.scores.aesthetic}/10`);
-        console.log(`    Vibe: ${sub.scout_analysis.vibe_tag}`);
-        console.log(`    Flags: ${sub.scout_analysis.flags.is_suspicious ? "⚠️ Suspicious" : "✅"} ` +
-            `${sub.scout_analysis.flags.is_uncertain ? "❓ Uncertain" : ""}`);
-    });
-
-    console.log("\n" + "─".repeat(80));
-    console.log("⚖️  HIGH COUNCIL JUDGMENT");
-    console.log("─".repeat(80));
-    console.log(`\n🏆 Grand Winner: ${result.judgment.grand_winner_id}`);
-    console.log(`   Rationale: ${result.judgment.grand_winner_rationale}`);
-    console.log(`\n🎭 Troll Winner: ${result.judgment.troll_winner_id}`);
-    console.log(`   Rationale: ${result.judgment.troll_winner_rationale}`);
-
-    console.log("\n📊 Scoreboard:");
-    result.judgment.scoreboard.forEach((entry: any) => {
-        const medal = entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : "  ";
-        console.log(`   ${medal} #${entry.rank} - ${entry.player_id}: ${entry.score} points`);
-    });
-
-    console.log("\n" + "─".repeat(80));
-    console.log("📢 BARD ANNOUNCEMENTS");
-    console.log("─".repeat(80));
-    console.log(`\n🏆 Grand Winner: "${result.grand_winner_announcement}"`);
-    console.log(`🎭 Troll Winner: "${result.troll_winner_announcement}"`);
+    console.log(`\nPlayer ID: ${result.winnerPlayerId}`);
+    console.log(`Best Word: "${result.bestWord}"`);
+    console.log(`One-Liner: "${result.oneLiner}"`);
 
     console.log("\n" + "=".repeat(80) + "\n");
 }
@@ -118,16 +96,20 @@ async function runTest() {
         }
 
         console.log(`✅ Found ${imagePaths.length} image(s):`);
-        imagePaths.forEach((path, idx) => {
-            console.log(`   ${idx + 1}. ${path.split("/").pop()}`);
+        imagePaths.forEach((imgPath, idx) => {
+            console.log(`   ${idx + 1}. ${imgPath.split("/").pop()}`);
         });
 
-        // Step 2: Create player submissions...
+        // Step 2: Create player submissions
         console.log("\n📝 Creating player submissions...");
         const submissions = createSubmissions(imagePaths);
 
-        // Step 3: Run the judge round
-        console.log(`\n⚡ Running judge round with riddle: "${TEST_RIDDLE}"`);
+        // Step 3: Prepare judge round input
+        const input: JudgeRoundInput = {
+            theme: TEST_THEME,
+            criteria: TEST_CRITERIA,
+            submissions,
+        };
 
         // Debug: Check API key
         if (!process.env.OPENROUTER_API_KEY) {
@@ -136,24 +118,34 @@ async function runTest() {
         }
         console.log(`✅ API Key loaded: ${process.env.OPENROUTER_API_KEY.substring(0, 20)}...`);
 
+        // Step 4: Run the judge round
+        console.log(`\n⚡ Running judge round...`);
+        console.log(`   Theme: "${TEST_THEME}"`);
+        console.log(`   Criteria: "${TEST_CRITERIA}"`);
+
         // Create a new JudgeService instance with explicit API key
         const { JudgeService } = await import("../src/service/judge.service");
         const judgeServiceInstance = new JudgeService(process.env.OPENROUTER_API_KEY);
 
-        console.log("⏳ This may take a minute...\n");
+        console.log("⏳ This may take a moment...\n");
 
         const startTime = Date.now();
-        const result = await judgeServiceInstance.judgeRound(TEST_RIDDLE, submissions);
+        const result = await judgeServiceInstance.judgeRound(input);
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
         console.log(`✅ Judge round completed in ${duration}s`);
 
-        // Step 4: Print results
-        printResults(result);
+        // Step 5: Print results
+        printResults(result, TEST_THEME, TEST_CRITERIA);
 
-        // Step 5: Save results to file
+        // Step 6: Save results to file
         const outputPath = path.join(__dirname, "judge-results.json");
-        fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
+        const fullResult = {
+            theme: TEST_THEME,
+            criteria: TEST_CRITERIA,
+            ...result,
+        };
+        fs.writeFileSync(outputPath, JSON.stringify(fullResult, null, 2));
         console.log(`💾 Results saved to: ${outputPath}\n`);
 
     } catch (error) {
