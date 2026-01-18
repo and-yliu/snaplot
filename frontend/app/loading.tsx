@@ -1,9 +1,10 @@
-import { View, Text, Image, Animated } from 'react-native';
+import { View, Text, Image, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useSocket } from '@/hooks/useSocket';
+import { useCameraPermissions } from 'expo-camera';
 
 const LOADING_TEXTS = [
     "The judge's brain is warming up...",
@@ -19,13 +20,43 @@ const MIN_LOADING_TIME_MS = 3000;
 export default function LoadingScreen() {
     const router = useRouter();
     const { pendingNavigation, clearPendingNavigation } = useSocket();
+    const [permission, requestPermission] = useCameraPermissions();
 
     // Track minimum loading time
     const [minTimeElapsed, setMinTimeElapsed] = useState(false);
     const [gameReady, setGameReady] = useState(false);
+    const [cameraReady, setCameraReady] = useState(false);
 
     // Array of animated values for opacity, one for each line
     const opacityAnims = useRef(LOADING_TEXTS.map(() => new Animated.Value(0))).current;
+
+    // Request camera permission on mount
+    useEffect(() => {
+        if (!permission) return;
+
+        if (permission.granted) {
+            setCameraReady(true);
+        } else if (!permission.granted && permission.canAskAgain) {
+            requestPermission().then((result) => {
+                if (result.granted) {
+                    setCameraReady(true);
+                } else {
+                    Alert.alert(
+                        'Camera Required',
+                        'This game needs camera access to play. Please enable it in settings.',
+                        [{ text: 'OK' }]
+                    );
+                }
+            });
+        } else {
+            // Permission denied and can't ask again
+            Alert.alert(
+                'Camera Required',
+                'This game needs camera access. Please enable it in your device settings.',
+                [{ text: 'OK' }]
+            );
+        }
+    }, [permission]);
 
     // Start minimum timer
     useEffect(() => {
@@ -43,13 +74,13 @@ export default function LoadingScreen() {
         }
     }, [pendingNavigation]);
 
-    // Navigate to game when both conditions are met
+    // Navigate to game when ALL conditions are met (including camera permission)
     useEffect(() => {
-        if (minTimeElapsed && gameReady) {
+        if (minTimeElapsed && gameReady && cameraReady) {
             clearPendingNavigation();
             router.replace('/game');
         }
-    }, [minTimeElapsed, gameReady, clearPendingNavigation, router]);
+    }, [minTimeElapsed, gameReady, cameraReady, clearPendingNavigation, router]);
 
     useEffect(() => {
         // Create a sequence of animations
