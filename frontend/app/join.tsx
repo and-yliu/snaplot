@@ -86,7 +86,7 @@ export default function JoinScreen() {
               />
             </View>
 
-            <View className="w-full px-6">
+            <View className="w-full">
               <NeoButton
                 title="Join Room"
                 onPress={handleJoinRoom}

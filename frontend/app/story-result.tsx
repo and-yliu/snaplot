@@ -4,6 +4,8 @@ import { View, Text, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { useAudioPlayer } from 'expo-audio';
+
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
 
@@ -31,6 +33,14 @@ const SUMMARY_TEXT = `And that is why ${PROTAGONIST} is solely responsible for t
 export default function StoryResultScreen() {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Audio Player
+  const player = useAudioPlayer(require('@/assets/audios/ui-pop-sound-316482.mp3'));
+
+  const playPop = useCallback(() => {
+    player.seekTo(0);
+    player.play();
+  }, [player]);
 
   // State
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0); // 0, 1, 2
@@ -83,6 +93,7 @@ export default function StoryResultScreen() {
               data={chunk}
               isActive={index === currentChunkIndex && !showSummary}
               onComplete={index === currentChunkIndex ? onChunkComplete : undefined}
+              playPop={playPop}
             />
           )
         ))}
@@ -100,7 +111,7 @@ export default function StoryResultScreen() {
 
             <View className="w-full">
               <NeoButton
-                title="Back to Home"
+                title="Next"
                 onPress={() => router.push('/')}
                 variant="primary"
               />
@@ -114,7 +125,7 @@ export default function StoryResultScreen() {
 }
 
 // Sub-component for each Story Pair
-function StoryChunk({ data, isActive, onComplete }: { data: any, isActive: boolean, onComplete?: () => void }) {
+function StoryChunk({ data, isActive, onComplete, playPop }: { data: any, isActive: boolean, onComplete?: () => void, playPop: () => void }) {
   const [displayedText, setDisplayedText] = useState('');
   const [showImage, setShowImage] = useState(false);
   const [isTypingDone, setIsTypingDone] = useState(false);
@@ -145,6 +156,12 @@ function StoryChunk({ data, isActive, onComplete }: { data: any, isActive: boole
       } else {
         clearInterval(intervalId);
         setIsTypingDone(true);
+
+        // Play sound 0.2s before image (which is at 1s in total)
+        setTimeout(() => {
+          playPop();
+        }, 800);
+
         // Delay before showing image
         setTimeout(() => {
           setShowImage(true);
@@ -155,7 +172,7 @@ function StoryChunk({ data, isActive, onComplete }: { data: any, isActive: boole
     }, 30); // Typing speed
 
     return () => clearInterval(intervalId);
-  }, [isActive, data.text, isTypingDone, onComplete]); // Added dependencies to fix lint warning
+  }, [isActive, data.text, isTypingDone, onComplete, playPop]);
 
   return (
     <View className="mb-10 w-full">

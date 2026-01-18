@@ -50,7 +50,6 @@ export function NeoPinInput({ length = 4, onComplete }: NeoPinInputProps) {
             onKeyPress={(e) => handleKeyPress(e, index)}
             keyboardType="number-pad"
             maxLength={1}
-            returnKeyType="done"
             selectionColor={Colors.neo.primary}
           />
         </View>

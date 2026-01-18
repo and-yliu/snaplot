@@ -13,7 +13,7 @@ module.exports = {
           secondary: '#FFA6C9',
           tertiary: '#FCE762',
           text: '#000000',
-          background: '#EDEDED',
+          background: '#FFF8E7',
           border: '#000000',
           card: '#FFFFFF',
           shadow: '#000000',

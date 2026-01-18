@@ -30,7 +30,7 @@ export const Colors = {
     secondary: '#FFA6C9', // Soft Pink
     tertiary: '#FCE762', // Soft Yellow
     text: '#000000',
-    background: '#EDEDED', // Light Gray
+    background: '#FFF8E7', // Light Yellow
     // backgroundGradient: ['#FFF5C2', '#FFC0CB', '#E0B0FF'], // Removed for now
     border: '#000000',
     card: '#FFFFFF',
