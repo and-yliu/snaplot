@@ -65,6 +65,7 @@ interface SocketState {
     gameStart: GameStartPayload | null;
     currentRound: RoundPayload | null;
     pendingNavigation: PendingNavigation;
+    remoteReactions: Array<{ id: string; icon: string; playerId: string }>;
 }
 
 let globalState: SocketState = {
@@ -74,6 +75,7 @@ let globalState: SocketState = {
     gameStart: null,
     currentRound: null,
     pendingNavigation: null,
+    remoteReactions: [],
 };
 
 const listeners = new Set<() => void>();
@@ -184,6 +186,18 @@ function getSocket(): Socket {
                 });
             });
 
+            socketInstance.on('game:reaction', ({ icon, playerId }: { icon: string; playerId: string }) => {
+                console.log('Remote reaction received:', icon, 'from', playerId);
+                const newReaction = {
+                    id: `${Date.now()}-${Math.random()}`,
+                    icon,
+                    playerId,
+                };
+                setGlobalState({
+                    remoteReactions: [...globalState.remoteReactions, newReaction]
+                });
+            });
+
             socketInstance.on('game:round', (payload: RoundPayload) => {
                 console.log('Round:', payload);
                 setGlobalState({ currentRound: payload });
@@ -268,6 +282,18 @@ export function useSocket() {
         setGlobalState({ pendingNavigation: null });
     }, []);
 
+    // Send a reaction to other players in the room
+    const sendReaction = useCallback((icon: string) => {
+        socket.emit('game:reaction', { icon });
+    }, []);
+
+    // Remove a reaction from the queue after animation completes
+    const consumeReaction = useCallback((reactionId: string) => {
+        setGlobalState({
+            remoteReactions: globalState.remoteReactions.filter(r => r.id !== reactionId)
+        });
+    }, []);
+
     return {
         socket,
         isConnected: state.isConnected,
@@ -276,6 +302,7 @@ export function useSocket() {
         gameStart: state.gameStart,
         currentRound: state.currentRound,
         pendingNavigation: state.pendingNavigation,
+        remoteReactions: state.remoteReactions,
         createLobby,
         joinLobby,
         leaveLobby,
@@ -284,5 +311,7 @@ export function useSocket() {
         startGame,
         submitPhoto,
         clearPendingNavigation,
+        sendReaction,
+        consumeReaction,
     };
 }

@@ -5,13 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
+import { useSocket } from '@/hooks/useSocket';
 
 export default function RoundResultScreen() {
   const router = useRouter();
+  const { remoteReactions, consumeReaction, sendReaction } = useSocket();
 
   // Animation States
   const [step, setStep] = useState(0); // 0: Init, 1: Criteria, 2: Winner, 3: Comment, 4: Done
@@ -115,11 +118,23 @@ export default function RoundResultScreen() {
         {/* Reactions & Footer */}
         {step >= 4 && (
           <View style={styles.footerContainer}>
+            {/* Remote reactions from other players */}
+            <View style={styles.remoteReactionsContainer}>
+              {remoteReactions.map((reaction) => (
+                <FlyingEmoji
+                  key={reaction.id}
+                  icon={reaction.icon}
+                  color="#E8C547"
+                  onComplete={() => consumeReaction(reaction.id)}
+                />
+              ))}
+            </View>
+
             <View style={styles.reactionsRow}>
-              <NeoReactionButton icon="thumbs-up" color="#E8C547" />
-              <NeoReactionButton icon="thumbs-down" color="#E8C547" />
-              <NeoReactionButton icon="egg" color="#E8C547" />
-              <NeoReactionButton icon="rose" color="#FF6B6B" />
+              <NeoReactionButton icon="thumbs-up" color="#E8C547" onSend={sendReaction} />
+              <NeoReactionButton icon="thumbs-down" color="#E8C547" onSend={sendReaction} />
+              <NeoReactionButton icon="egg" color="#E8C547" onSend={sendReaction} />
+              <NeoReactionButton icon="rose" color="#FF6B6B" onSend={sendReaction} />
             </View>
 
             <NeoButton
@@ -137,12 +152,15 @@ export default function RoundResultScreen() {
 }
 
 // Helper for Neo Reaction Buttons
-function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+function NeoReactionButton({ icon, color, onSend }: { icon: IconName; color: string; onSend: (icon: string) => void }) {
   const [reactions, setReactions] = useState<number[]>([]);
 
   const handlePress = () => {
     const id = Date.now() + Math.random();
     setReactions((prev) => [...prev, id]);
+    onSend(icon);  // Send to other players
   };
 
   const removeReaction = (id: number) => {
@@ -170,7 +188,7 @@ function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
   );
 }
 
-function FlyingEmoji({ icon, color, onComplete }: { icon: any, color: string, onComplete: () => void }) {
+function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; color: string; onComplete: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -204,7 +222,7 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: any, color: string, on
         opacity
       }
     ]}>
-      <Ionicons name={icon} size={28} color={color} />
+      <Ionicons name={icon as IconName} size={28} color={color} />
     </Animated.View>
   );
 }
@@ -283,7 +301,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     marginBottom: 5,
-    zIndex: 10, // Ensure reactions are above other things if they fly out?
+    zIndex: 10,
+  },
+  remoteReactionsContainer: {
+    position: 'absolute',
+    top: -50,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    pointerEvents: 'none',
   },
   // Custom Neo Button Styles for Icons
   reactionContainer: {
