@@ -6,10 +6,13 @@ interface NeoButtonProps {
   onPress: (event: GestureResponderEvent) => void;
   variant?: 'primary' | 'secondary' | 'outline';
   style?: ViewStyle;
+  backgroundColor?: string;
+  textColor?: string;
 }
 
-export function NeoButton({ title, onPress, variant = 'primary', style }: NeoButtonProps) {
+export function NeoButton({ title, onPress, variant = 'primary', style, backgroundColor, textColor }: NeoButtonProps) {
   const getBackgroundColor = () => {
+    if (backgroundColor) return backgroundColor;
     switch (variant) {
       case 'primary':
         return Colors.neo.primary;
@@ -23,6 +26,7 @@ export function NeoButton({ title, onPress, variant = 'primary', style }: NeoBut
   };
 
   const getTextColor = () => {
+    if (textColor) return textColor;
     return Colors.neo.text;
   };
 

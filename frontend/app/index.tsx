@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { StyleSheet, Text, View, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -14,7 +14,7 @@ export default function HomeScreen() {
   const handleCreateGame = () => {
     // Navigate to create game flow
     console.log('Create Game with nickname:', nickname);
-    router.push('/explore'); // Temporary navigation
+    router.push('/game'); // Navigate to game flow
   };
 
   const handleJoinGame = () => {
@@ -32,9 +32,16 @@ export default function HomeScreen() {
             style={styles.keyboardAvoid}
           >
             <View style={styles.content}>
-              <Text style={styles.title}>Welcome!</Text>
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('@/assets/images/snapplot_logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
 
               <View style={styles.inputContainer}>
+                <Text style={styles.label}>Please enter your nickname</Text>
                 <NeoInput
                   placeholder="Nickname"
                   value={nickname}
@@ -45,7 +52,7 @@ export default function HomeScreen() {
 
               <View style={styles.buttonContainer}>
                 <NeoButton
-                  title="+ Create a Game"
+                  title="➕Create a Game"
                   onPress={handleCreateGame}
                   variant="primary"
                   style={styles.button}
@@ -82,11 +89,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 48,
+  logoContainer: {
+    marginBottom: 32,
+    marginTop: -150,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 370,
+    height: 150,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
     color: Colors.neo.text,
+    marginBottom: 12,
+    opacity: 0.9,
   },
   inputContainer: {
     width: '100%',
