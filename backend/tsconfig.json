@@ -42,5 +42,10 @@
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"
-  }
+  },
+  "exclude": [
+    "test",
+    "node_modules",
+    "dist"
+  ]
 }
