@@ -23,15 +23,39 @@ export interface Lobby {
 }
 
 // ============================================================================
+// Story Types
+// ============================================================================
+
+export interface StoryBlank {
+    index: number;
+    theme: string;           // e.g., "A mysterious red object"
+    criteria: string;        // What AI looks for (single string now per teammate's interface)
+}
+
+export interface GeneratedStory {
+    template: string;        // Story with {0}, {1}, {2}... placeholders
+    blanks: StoryBlank[];    // One per placeholder
+}
+
+// ============================================================================
 // Game Types
 // ============================================================================
 
 export interface PlayerGameState {
     id: string;
     name: string;
-    score: number;
+    winCount: number;        // Track wins for awards
     hasSubmitted: boolean;
     photoPath?: string;
+}
+
+export interface RoundResultData {
+    blankIndex: number;
+    winnerId: string;
+    winnerName: string;
+    photoPath: string;
+    objectName: string;      // bestWord from judge
+    oneliner: string;        // AI's funny one-liner
 }
 
 export interface GameState {
@@ -39,9 +63,15 @@ export interface GameState {
     players: Map<string, PlayerGameState>;
     currentRound: number;
     totalRounds: number;
-    currentRiddle: string;
-    roundDeadline: number;     // Unix timestamp (ms)
-    status: 'riddle' | 'judging' | 'results' | 'finished';
+    story: GeneratedStory;
+    results: RoundResultData[];   // Filled as rounds complete
+    roundDeadline: number;        // Unix timestamp (ms)
+    status: 'waiting' | 'round' | 'judging' | 'results' | 'complete';
+}
+
+export interface FinalAwards {
+    judgesFavorite: Array<{ playerId: string; name: string; wins: number }>;
+    mostClueless: Array<{ playerId: string; name: string; wins: number }>;
 }
 
 // ============================================================================
@@ -81,11 +111,19 @@ export interface LobbyStatePayload {
     allReady: boolean;
 }
 
-// Game state broadcasts
-export interface RiddlePayload {
+// Game start payload
+export interface GameStartPayload {
+    storyTemplate: string;
+    blanks: StoryBlank[];
+    totalRounds: number;
+}
+
+// Round payload
+export interface RoundPayload {
     round: number;
     totalRounds: number;
-    riddle: string;
+    theme: string;
+    criteria: string;
     deadline: number;
     remainingSeconds: number;
 }
@@ -99,32 +137,24 @@ export interface PlayerSubmittedPayload {
     playerName: string;
 }
 
-export interface RoundResultsPayload {
+// Round result payload
+export interface RoundResultPayload {
     round: number;
-    grandWinner: {
-        playerId: string;
-        playerName: string;
-        announcement: string;
-    };
-    trollWinner: {
-        playerId: string;
-        playerName: string;
-        announcement: string;
-    };
-    scoreboard: Array<{
-        rank: number;
-        playerId: string;
-        playerName: string;
-        score: number;
-        roundScore: number;
-    }>;
+    winnerId: string;
+    winnerName: string;
+    photoPath: string;
+    objectName: string;
+    oneliner: string;
 }
 
-export interface FinalResultsPayload {
-    standings: Array<{
-        rank: number;
-        playerId: string;
-        playerName: string;
-        totalScore: number;
-    }>;
+// Game complete payload
+export interface GameCompletePayload {
+    storyTemplate: string;
+    results: RoundResultData[];
+}
+
+// Final awards payload
+export interface FinalAwardsPayload {
+    judgesFavorite: Array<{ playerId: string; name: string; wins: number }>;
+    mostClueless: Array<{ playerId: string; name: string; wins: number }>;
 }

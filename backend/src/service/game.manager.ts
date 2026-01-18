@@ -1,34 +1,22 @@
 /**
- * GameManager - In-memory game state management
+ * GameManager - Story-based game state management
  */
 
 import type {
     GameState,
     PlayerGameState,
-    RiddlePayload,
-    RoundResultsPayload,
-    FinalResultsPayload
+    GeneratedStory,
+    RoundResultData,
+    RoundPayload,
+    RoundResultPayload,
+    GameCompletePayload,
+    FinalAwards,
+    FinalAwardsPayload,
+    GameStartPayload,
 } from '../lib/types/types.js';
 import type { Lobby } from '../lib/types/types.js';
-import { judgeService, type PlayerSubmission, type RoundResult } from './judge.service.js';
-import * as fs from 'fs';
-
-// ============================================================================
-// Riddles Pool (for demo purposes)
-// ============================================================================
-
-const RIDDLES = [
-    "Find me something that holds memories but has no brain",
-    "Capture a guardian that never sleeps but never moves",
-    "Show me a bridge between two worlds",
-    "Find something older than you that's still working hard",
-    "Catch a tiny sun that lives indoors",
-    "Show me nature's artwork on something man-made",
-    "Find a number that tells a story",
-    "Capture something that was once alive but now decorates",
-    "Show me a reflection of something that isn't there",
-    "Find a container of possibilities",
-];
+import { generateStory } from './story.placeholder.js';
+import { judgeRound as callJudgeRound, type JudgeRoundInput, type PlayerSubmission, type RoundResult } from './judge.service.js';
 
 // ============================================================================
 // Game Manager Class
@@ -57,29 +45,31 @@ export class GameManager {
     /**
      * Initialize a new game from a lobby
      */
-    startGame(lobby: Lobby, totalRounds: number = 3): GameState { // TODO: gameconfig
+    async startGame(lobby: Lobby, totalRounds: number = 4): Promise<GameState> {
         const players = new Map<string, PlayerGameState>();
 
         for (const [id, player] of lobby.players) {
             players.set(id, {
                 id,
                 name: player.name,
-                score: 0,
+                winCount: 0,
                 hasSubmitted: false,
             });
         }
 
-        const riddle = this.getRandomRiddle();
-        const deadline = Date.now() + 60000; // 60 seconds // TODO: gameconfig
+        // Generate story with blanks matching total rounds
+        const story = await generateStory(totalRounds);
+        const deadline = Date.now() + 60000; // 60 seconds
 
         const game: GameState = {
             lobbyCode: lobby.code,
             players,
             currentRound: 1,
-            totalRounds,
-            currentRiddle: riddle,
+            totalRounds: story.blanks.length, // Use actual blanks count
+            story,
+            results: [],
             roundDeadline: deadline,
-            status: 'riddle',
+            status: 'round',
         };
 
         this.games.set(lobby.code, game);
@@ -89,10 +79,10 @@ export class GameManager {
     }
 
     /**
-     * Get a random riddle
+     * Get the current round's blank
      */
-    private getRandomRiddle(): string {
-        return RIDDLES[Math.floor(Math.random() * RIDDLES.length)] ?? RIDDLES[0] ?? "Find something interesting";
+    getCurrentBlank(game: GameState) {
+        return game.story.blanks[game.currentRound - 1];
     }
 
     /**
@@ -108,7 +98,7 @@ export class GameManager {
         // Tick every second
         const tickInterval = setInterval(() => {
             const currentGame = this.games.get(lobbyCode);
-            if (!currentGame || currentGame.status !== 'riddle') {
+            if (!currentGame || currentGame.status !== 'round') {
                 this.clearTimers(lobbyCode);
                 return;
             }
@@ -152,7 +142,7 @@ export class GameManager {
      */
     submitPhoto(lobbyCode: string, playerId: string, photoPath: string): boolean {
         const game = this.games.get(lobbyCode);
-        if (!game || game.status !== 'riddle') {
+        if (!game || game.status !== 'round') {
             return false;
         }
 
@@ -196,53 +186,77 @@ export class GameManager {
     }
 
     /**
-     * Judge the current round
+     * Judge the current round - picks ONE winner
      */
-    async judgeRound(lobbyCode: string): Promise<RoundResult | null> {
+    async judgeRound(lobbyCode: string): Promise<RoundResultData | null> {
         const game = this.games.get(lobbyCode);
         if (!game) return null;
 
         game.status = 'judging';
 
-        // Collect submissions
+        const currentBlank = this.getCurrentBlank(game);
+        if (!currentBlank) {
+            console.error('No blank found for current round');
+            game.status = 'results';
+            return null;
+        }
+
+        // Collect submissions for judge
         const submissions: PlayerSubmission[] = [];
 
         for (const player of game.players.values()) {
             if (player.photoPath) {
-                try {
-                    // Read image and convert to base64
-                    const imageBuffer = fs.readFileSync(player.photoPath);
-                    const base64 = imageBuffer.toString('base64');
-
-                    submissions.push({
-                        player_id: player.id,
-                        image_base64: base64,
-                    });
-                } catch (err) {
-                    console.error(`Failed to read image for player ${player.id}:`, err);
-                }
+                submissions.push({
+                    playerId: player.id,
+                    playerName: player.name,
+                    photoLocation: player.photoPath,
+                });
             }
         }
 
         if (submissions.length === 0) {
             // No valid submissions, skip judging
+            console.log('No submissions for this round');
             game.status = 'results';
             return null;
         }
 
         try {
-            const result = await judgeService.judgeRound(game.currentRiddle, submissions);
+            const judgeInput: JudgeRoundInput = {
+                theme: currentBlank.theme,
+                criteria: currentBlank.criteria,
+                submissions,
+            };
 
-            // Update scores based on judgment
-            for (const entry of result.judgment.scoreboard) {
-                const player = game.players.get(entry.player_id);
-                if (player) {
-                    player.score += entry.score;
-                }
+            const result: RoundResult = await callJudgeRound(judgeInput);
+
+            // Find the winner
+            const winner = game.players.get(result.winnerPlayerId);
+            const winnerSubmission = submissions.find(s => s.playerId === result.winnerPlayerId);
+
+            if (!winner || !winnerSubmission) {
+                console.error('Winner not found in game state');
+                game.status = 'results';
+                return null;
             }
 
+            // Increment winner's win count
+            winner.winCount++;
+
+            // Store this round's result
+            const roundResult: RoundResultData = {
+                blankIndex: currentBlank.index,
+                winnerId: result.winnerPlayerId,
+                winnerName: winner.name,
+                photoPath: winnerSubmission.photoLocation,
+                objectName: result.bestWord,
+                oneliner: result.oneLiner,
+            };
+
+            game.results.push(roundResult);
             game.status = 'results';
-            return result;
+
+            return roundResult;
         } catch (err) {
             console.error('Judge service error:', err);
             game.status = 'results';
@@ -251,18 +265,18 @@ export class GameManager {
     }
 
     /**
-     * Advance to the next round
+     * Advance to the next round or complete the game
      */
     nextRound(lobbyCode: string): GameState | null {
         const game = this.games.get(lobbyCode);
         if (!game) return null;
 
         if (game.currentRound >= game.totalRounds) {
-            game.status = 'finished';
+            game.status = 'complete';
             return game;
         }
 
-        // Reset player states
+        // Reset player states for next round
         for (const player of game.players.values()) {
             player.hasSubmitted = false;
             if ('photoPath' in player) {
@@ -271,9 +285,8 @@ export class GameManager {
         }
 
         game.currentRound++;
-        game.currentRiddle = this.getRandomRiddle();
         game.roundDeadline = Date.now() + 60000;
-        game.status = 'riddle';
+        game.status = 'round';
 
         this.startRoundTimer(lobbyCode);
 
@@ -288,66 +301,76 @@ export class GameManager {
     }
 
     /**
-     * Get riddle payload for broadcast
+     * Get game start payload
      */
-    getRiddlePayload(game: GameState): RiddlePayload {
+    getGameStartPayload(game: GameState): GameStartPayload {
+        return {
+            storyTemplate: game.story.template,
+            blanks: game.story.blanks,
+            totalRounds: game.totalRounds,
+        };
+    }
+
+    /**
+     * Get round payload for broadcast
+     */
+    getRoundPayload(game: GameState): RoundPayload {
+        const blank = this.getCurrentBlank(game);
         return {
             round: game.currentRound,
             totalRounds: game.totalRounds,
-            riddle: game.currentRiddle,
+            theme: blank?.theme ?? 'Find something',
+            criteria: blank?.criteria ?? 'Something interesting',
             deadline: game.roundDeadline,
             remainingSeconds: Math.max(0, Math.ceil((game.roundDeadline - Date.now()) / 1000)),
         };
     }
 
     /**
-     * Get round results payload for broadcast
+     * Get round result payload for broadcast
      */
-    getRoundResultsPayload(game: GameState, result: RoundResult): RoundResultsPayload {
-        const scoreboard = result.judgment.scoreboard.map((entry, index) => {
-            const player = game.players.get(entry.player_id);
-            return {
-                rank: entry.rank,
-                playerId: entry.player_id,
-                playerName: player?.name ?? 'Unknown',
-                score: player?.score ?? 0,
-                roundScore: entry.score,
-            };
-        });
-
-        const grandWinnerPlayer = game.players.get(result.judgment.grand_winner_id);
-        const trollWinnerPlayer = game.players.get(result.judgment.troll_winner_id);
-
+    getRoundResultPayload(result: RoundResultData, round: number): RoundResultPayload {
         return {
-            round: game.currentRound,
-            grandWinner: {
-                playerId: result.judgment.grand_winner_id,
-                playerName: grandWinnerPlayer?.name ?? 'Unknown',
-                announcement: result.grand_winner_announcement,
-            },
-            trollWinner: {
-                playerId: result.judgment.troll_winner_id,
-                playerName: trollWinnerPlayer?.name ?? 'Unknown',
-                announcement: result.troll_winner_announcement,
-            },
-            scoreboard,
+            round,
+            winnerId: result.winnerId,
+            winnerName: result.winnerName,
+            photoPath: result.photoPath,
+            objectName: result.objectName,
+            oneliner: result.oneliner,
         };
     }
 
     /**
-     * Get final results payload
+     * Get game complete payload
      */
-    getFinalResultsPayload(game: GameState): FinalResultsPayload {
-        const standings = Array.from(game.players.values())
-            .sort((a, b) => b.score - a.score)
-            .map((player, index) => ({
-                rank: index + 1,
-                playerId: player.id,
-                playerName: player.name,
-                totalScore: player.score,
-            }));
+    getGameCompletePayload(game: GameState): GameCompletePayload {
+        return {
+            storyTemplate: game.story.template,
+            results: game.results,
+        };
+    }
 
-        return { standings };
+    /**
+     * Calculate and get final awards
+     */
+    getFinalAwardsPayload(game: GameState): FinalAwardsPayload {
+        const players = Array.from(game.players.values());
+
+        // Find max and min win counts
+        const maxWins = Math.max(...players.map(p => p.winCount));
+        const minWins = Math.min(...players.map(p => p.winCount));
+
+        // Judge's Favorite: player(s) with most wins
+        const judgesFavorite = players
+            .filter(p => p.winCount === maxWins && maxWins > 0)
+            .map(p => ({ playerId: p.id, name: p.name, wins: p.winCount }));
+
+        // Most Clueless: player(s) with fewest wins (including 0)
+        const mostClueless = players
+            .filter(p => p.winCount === minWins && minWins < maxWins)
+            .map(p => ({ playerId: p.id, name: p.name, wins: p.winCount }));
+
+        return { judgesFavorite, mostClueless };
     }
 
     /**
@@ -372,7 +395,7 @@ export class GameManager {
         }
 
         // Check if all remaining connected players have submitted
-        if (this.allPlayersSubmitted(lobbyCode) && game.status === 'riddle') {
+        if (this.allPlayersSubmitted(lobbyCode) && game.status === 'round') {
             this.clearTimers(lobbyCode);
             if (this.onRoundEnd) {
                 this.onRoundEnd(lobbyCode);

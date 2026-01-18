@@ -2,6 +2,7 @@
  * Socket.io Event Handlers for IRL Quests
  * 
  * Handles all real-time events for lobby and game management.
+ * Updated for story-based game flow.
  */
 
 import type { Server, Socket } from 'socket.io';
@@ -106,7 +107,7 @@ export function setupSocketHandlers(io: Server): void {
             }
         });
 
-        socket.on('lobby:start', () => {
+        socket.on('lobby:start', async () => {
             try {
                 const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
                 if (!lobbyCode) {
@@ -138,13 +139,18 @@ export function setupSocketHandlers(io: Server): void {
                 // Mark lobby as in-game
                 lobbyManager.setLobbyInGame(lobbyCode);
 
-                // Start the game
-                const game = gameManager.startGame(lobby);
-                const riddlePayload = gameManager.getRiddlePayload(game);
+                // Start the game (async now due to story generation)
+                const game = await gameManager.startGame(lobby);
 
-                io.to(lobbyCode).emit('game:start', riddlePayload);
+                // Send game start with story info
+                const startPayload = gameManager.getGameStartPayload(game);
+                io.to(lobbyCode).emit('game:start', startPayload);
 
-                console.log(`Game started in lobby ${lobbyCode}`);
+                // Also send first round info
+                const roundPayload = gameManager.getRoundPayload(game);
+                io.to(lobbyCode).emit('game:round', roundPayload);
+
+                console.log(`Game started in lobby ${lobbyCode} with ${game.totalRounds} rounds`);
             } catch (err) {
                 socket.emit('lobby:error', { message: (err as Error).message });
             }
@@ -235,39 +241,47 @@ async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
     // Notify players judging is starting
     io.to(lobbyCode).emit('game:judging');
 
-    // Run AI judge
+    // Run AI judge - now returns single winner
     const result = await gameManager.judgeRound(lobbyCode);
 
     if (result) {
-        const resultsPayload = gameManager.getRoundResultsPayload(game, result);
-        io.to(lobbyCode).emit('game:round-results', resultsPayload);
+        const resultsPayload = gameManager.getRoundResultPayload(result, game.currentRound);
+        io.to(lobbyCode).emit('game:round-result', resultsPayload);
     } else {
-        // No submissions or error - send empty results
-        io.to(lobbyCode).emit('game:round-results', {
+        // No submissions or error - send empty result
+        io.to(lobbyCode).emit('game:round-result', {
             round: game.currentRound,
-            grandWinner: null,
-            trollWinner: null,
-            scoreboard: [],
+            winnerId: null,
+            winnerName: null,
+            photoPath: null,
+            objectName: null,
+            oneliner: 'No submissions this round!',
         });
     }
 
-    // Wait a bit for players to see results, then advance
+    // Wait for players to see results, then advance
     setTimeout(() => {
         const currentGame = gameManager.getGame(lobbyCode);
         if (!currentGame) return;
 
-        if (currentGame.currentRound >= currentGame.totalRounds) {
-            // Game over
-            const finalResults = gameManager.getFinalResultsPayload(currentGame);
-            io.to(lobbyCode).emit('game:final-results', finalResults);
+        // Advance to next round or complete game
+        const nextGame = gameManager.nextRound(lobbyCode);
+        if (!nextGame) return;
+
+        if (nextGame.status === 'complete') {
+            // Game over - send complete story and awards
+            const completePayload = gameManager.getGameCompletePayload(nextGame);
+            io.to(lobbyCode).emit('game:complete', completePayload);
+
+            const awardsPayload = gameManager.getFinalAwardsPayload(nextGame);
+            io.to(lobbyCode).emit('game:awards', awardsPayload);
+
             gameManager.endGame(lobbyCode);
+            console.log(`Game completed in lobby ${lobbyCode}`);
         } else {
-            // Next round
-            const nextGame = gameManager.nextRound(lobbyCode);
-            if (nextGame) {
-                const riddlePayload = gameManager.getRiddlePayload(nextGame);
-                io.to(lobbyCode).emit('game:riddle', riddlePayload);
-            }
+            // Send next round info
+            const roundPayload = gameManager.getRoundPayload(nextGame);
+            io.to(lobbyCode).emit('game:round', roundPayload);
         }
     }, 8000); // 8 seconds to view results
 }
