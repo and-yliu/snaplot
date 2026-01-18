@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IRL Quests - Socket Test</title>
+  <title>IRL Quests - Test Console</title>
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <style>
     * {
@@ -13,185 +13,389 @@
     }
 
     body {
-      max-width: 600px;
-      margin: 2rem auto;
+      max-width: 900px;
+      margin: 0 auto;
       padding: 1rem;
-      background: #1a1a2e;
+      background: #0f0f1a;
       color: #eee;
     }
 
     h1 {
       color: #00d9ff;
+      margin-bottom: 0.5rem;
     }
 
-    .section {
-      background: #16213e;
+    h3 {
+      margin: 0 0 0.75rem 0;
+      color: #888;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: #1a1a2e;
       padding: 1rem;
       border-radius: 8px;
-      margin: 1rem 0;
+    }
+
+    .card-full {
+      grid-column: 1 / -1;
     }
 
     button {
-      background: #00d9ff;
+      background: linear-gradient(135deg, #00d9ff, #00b8d9);
       color: #000;
       border: none;
       padding: 0.5rem 1rem;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
       margin: 0.25rem;
+      font-weight: 600;
+      transition: transform 0.1s, box-shadow 0.1s;
     }
 
     button:hover {
-      background: #00b8d9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
     }
 
-    input {
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: #333;
+      color: #fff;
+    }
+
+    input,
+    select {
       padding: 0.5rem;
-      border-radius: 4px;
+      border-radius: 6px;
       border: 1px solid #333;
       background: #0f0f23;
       color: #fff;
-      width: 150px;
     }
 
-    #log {
-      background: #0f0f23;
-      padding: 1rem;
-      border-radius: 4px;
-      height: 300px;
-      overflow-y: auto;
-      font-family: monospace;
-      font-size: 12px;
-    }
-
-    .log-entry {
-      margin: 0.25rem 0;
-      padding: 0.25rem;
-      border-left: 3px solid #333;
-    }
-
-    .log-entry.send {
+    input:focus,
+    select:focus {
+      outline: none;
       border-color: #00d9ff;
     }
 
-    .log-entry.receive {
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot.on {
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+    }
+
+    .dot.off {
+      background: #ff4444;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Event Display */
+    #events {
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 1rem;
+      height: 400px;
+      overflow-y: auto;
+    }
+
+    .event {
+      margin-bottom: 0.75rem;
+      border-radius: 6px;
+      overflow: hidden;
+      border-left: 4px solid #333;
+    }
+
+    .event.send {
+      border-color: #00d9ff;
+    }
+
+    .event.receive {
       border-color: #00ff88;
     }
 
-    .log-entry.error {
+    .event.error {
       border-color: #ff4444;
+      background: rgba(255, 68, 68, 0.1);
     }
 
-    .status {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      margin-right: 0.5rem;
+    .event.game {
+      border-color: #ffaa00;
     }
 
-    .status.connected {
-      background: #00ff88;
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      font-size: 0.85rem;
     }
 
-    .status.disconnected {
-      background: #ff4444;
+    .event-header:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .event-name {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .event-time {
+      color: #666;
+      font-size: 0.75rem;
+    }
+
+    .event-preview {
+      color: #888;
+      font-size: 0.8rem;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .event-body {
+      padding: 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      display: none;
+      font-family: monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      color: #aaa;
+      max-height: 200px;
+      overflow: auto;
+    }
+
+    .event.expanded .event-body {
+      display: block;
+    }
+
+    /* Game State Panel */
+    .state-panel {
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .state-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+      border-bottom: 1px solid #222;
+    }
+
+    .state-label {
+      color: #666;
+    }
+
+    .state-value {
+      color: #00ff88;
+      font-weight: 600;
+    }
+
+    /* Upload Preview */
+    #uploadPreview img {
+      max-width: 150px;
+      border-radius: 6px;
+      margin-top: 0.5rem;
+    }
+
+    #uploadStatus {
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .success {
+      color: #00ff88;
+    }
+
+    .error {
+      color: #ff4444;
     }
   </style>
 </head>
 
 <body>
-  <h1>🎮 IRL Quests - Socket Test</h1>
+  <h1>🎮 IRL Quests Test Console</h1>
 
-  <div class="section">
-    <span class="status disconnected" id="statusDot"></span>
+  <div class="status-bar">
+    <span class="dot off" id="statusDot"></span>
     <span id="statusText">Disconnected</span>
   </div>
 
-  <div class="section">
-    <h3>Lobby Controls</h3>
-    <input type="text" id="playerName" placeholder="Your name" value="Player1">
-    <input type="text" id="lobbyCode" placeholder="Lobby code">
-    <br><br>
-    <button onclick="createLobby()">Create Lobby</button>
-    <button onclick="joinLobby()">Join Lobby</button>
-    <button onclick="leaveLobby()">Leave</button>
-    <button onclick="toggleReady()">Toggle Ready</button>
-    <button onclick="startGame()">Start Game</button>
-  </div>
+  <div class="grid">
+    <!-- Lobby Controls -->
+    <div class="card">
+      <h3>👥 Lobby</h3>
+      <div class="row">
+        <input type="text" id="playerName" placeholder="Your name" value="Player1" style="width: 120px;">
+        <input type="text" id="lobbyCode" placeholder="Code" style="width: 80px;">
+      </div>
+      <div class="row">
+        <button onclick="createLobby()">Create</button>
+        <button onclick="joinLobby()">Join</button>
+        <button onclick="leaveLobby()" class="secondary">Leave</button>
+      </div>
+      <div class="row" style="margin-top: 0.5rem;">
+        <button onclick="toggleReady()">Toggle Ready</button>
+        <button onclick="startGame()">Start Game</button>
+      </div>
+    </div>
 
-  <div class="section">
-    <h3>⚙️ Settings (Host Only)</h3>
-    <label>Rounds: <input type="number" id="rounds" value="4" min="1" max="8" style="width:60px"></label>
-    <label>Time (sec): <input type="number" id="roundTime" value="60" min="30" max="120" style="width:60px"></label>
-    <button onclick="updateSettings()">Update Settings</button>
-  </div>
+    <!-- Settings -->
+    <div class="card">
+      <h3>⚙️ Settings (Host)</h3>
+      <div class="row">
+        <label>Rounds: <input type="number" id="rounds" value="4" min="3" max="6" style="width: 50px;"></label>
+        <label>Time: <input type="number" id="roundTime" value="30" min="15" max="60" style="width: 50px;">s</label>
+      </div>
+      <button onclick="updateSettings()" style="margin-top: 0.5rem;">Update Settings</button>
+    </div>
 
-  <div class="section">
-    <h3>Game Controls</h3>
-    <button onclick="submitPhoto()">Submit Test Photo</button>
-  </div>
+    <!-- Photo Upload -->
+    <div class="card">
+      <h3>📤 Photo Upload</h3>
+      <div class="row">
+        <input type="file" id="photoInput" accept="image/*" style="width: 180px;">
+        <button onclick="uploadPhoto()">Upload</button>
+      </div>
+      <div id="uploadStatus"></div>
+      <div id="uploadPreview"></div>
+    </div>
 
-  <div class="section">
-    <h3>📤 File Upload Test</h3>
-    <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp,image/heic">
-    <button onclick="uploadPhoto()">Upload Photo</button>
-    <div id="uploadResult" style="margin-top: 0.5rem; font-size: 12px;"></div>
-    <div id="uploadPreview" style="margin-top: 0.5rem;"></div>
-  </div>
+    <!-- Game State -->
+    <div class="card">
+      <h3>📊 Game State</h3>
+      <div class="state-panel">
+        <div class="state-item"><span class="state-label">Lobby</span><span class="state-value" id="stLobby">-</span>
+        </div>
+        <div class="state-item"><span class="state-label">Status</span><span class="state-value" id="stStatus">-</span>
+        </div>
+        <div class="state-item"><span class="state-label">Round</span><span class="state-value" id="stRound">-</span>
+        </div>
+        <div class="state-item"><span class="state-label">Timer</span><span class="state-value" id="stTimer">-</span>
+        </div>
+        <div class="state-item"><span class="state-label">Theme</span><span class="state-value" id="stTheme">-</span>
+        </div>
+      </div>
+    </div>
 
-  <div class="section">
-    <h3>Event Log</h3>
-    <button onclick="clearLog()">Clear</button>
-    <div id="log"></div>
+    <!-- Event Log -->
+    <div class="card card-full">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>📋 Events</h3>
+        <button onclick="clearEvents()" class="secondary"
+          style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Clear</button>
+      </div>
+      <div id="events"></div>
+    </div>
   </div>
 
   <script>
     const socket = io('http://localhost:3000');
     let isReady = false;
+    let lastUploadPath = null;
 
-    // Connection status
+    // === Connection ===
     socket.on('connect', () => {
-      document.getElementById('statusDot').className = 'status connected';
+      document.getElementById('statusDot').className = 'dot on';
       document.getElementById('statusText').textContent = 'Connected: ' + socket.id;
-      log('Connected!', 'receive');
+      logEvent('connect', { socketId: socket.id }, 'receive');
     });
 
     socket.on('disconnect', () => {
-      document.getElementById('statusDot').className = 'status disconnected';
+      document.getElementById('statusDot').className = 'dot off';
       document.getElementById('statusText').textContent = 'Disconnected';
-      log('Disconnected', 'error');
+      logEvent('disconnect', null, 'error');
     });
 
-    // Lobby events
+    // === Lobby Events ===
     socket.on('lobby:state', (data) => {
-      log('lobby:state: ' + JSON.stringify(data, null, 2), 'receive');
-      // Update settings inputs if received
+      logEvent('lobby:state', data, 'receive');
+      document.getElementById('stLobby').textContent = data.code;
+      document.getElementById('stStatus').textContent = data.status;
       if (data.settings) {
         document.getElementById('rounds').value = data.settings.rounds;
         document.getElementById('roundTime').value = data.settings.roundTimeSeconds;
       }
     });
-    socket.on('lobby:player-joined', (data) => log('lobby:player-joined: ' + JSON.stringify(data), 'receive'));
-    socket.on('lobby:player-left', (data) => log('lobby:player-left: ' + JSON.stringify(data), 'receive'));
-    socket.on('lobby:error', (data) => log('lobby:error: ' + data.message, 'error'));
+    socket.on('lobby:player-joined', (data) => logEvent('lobby:player-joined', data, 'receive'));
+    socket.on('lobby:player-left', (data) => logEvent('lobby:player-left', data, 'receive'));
+    socket.on('lobby:error', (data) => logEvent('lobby:error', data, 'error'));
 
-    // Game events (updated for story-based flow)
-    socket.on('game:start', (data) => log('🎮 game:start: ' + JSON.stringify(data, null, 2), 'receive'));
-    socket.on('game:round', (data) => log('❓ game:round: ' + JSON.stringify(data, null, 2), 'receive'));
-    socket.on('game:tick', (data) => log('⏱️ ' + data.remainingSeconds + 's', 'receive'));
-    socket.on('game:player-submitted', (data) => log('📸 ' + data.playerName + ' submitted', 'receive'));
-    socket.on('game:judging', () => log('🤖 Judging...', 'receive'));
-    socket.on('game:round-result', (data) => log('🏆 Winner: ' + data.winnerName + ' - ' + data.oneliner, 'receive'));
-    socket.on('game:complete', (data) => log('📖 Story Complete! ' + data.results.length + ' rounds', 'receive'));
-    socket.on('game:awards', (data) => log('🎉 Awards: ' + JSON.stringify(data, null, 2), 'receive'));
-    socket.on('game:error', (data) => log('game:error: ' + data.message, 'error'));
+    // === Game Events ===
+    socket.on('game:start', (data) => {
+      logEvent('game:start', data, 'game');
+      document.getElementById('stStatus').textContent = 'Playing';
+    });
+    socket.on('game:round', (data) => {
+      logEvent('game:round', data, 'game');
+      document.getElementById('stRound').textContent = data.round + '/' + data.totalRounds;
+      document.getElementById('stTheme').textContent = data.theme;
+      document.getElementById('stTimer').textContent = data.remainingSeconds + 's';
+    });
+    socket.on('game:tick', (data) => {
+      document.getElementById('stTimer').textContent = data.remainingSeconds + 's';
+    });
+    socket.on('game:player-submitted', (data) => logEvent('game:player-submitted', data, 'receive'));
+    socket.on('game:judging', () => {
+      logEvent('game:judging', { message: 'AI is judging...' }, 'game');
+      document.getElementById('stStatus').textContent = 'Judging...';
+    });
+    socket.on('game:round-result', (data) => {
+      logEvent('game:round-result', data, 'game');
+      document.getElementById('stStatus').textContent = 'Results';
+    });
+    socket.on('game:complete', (data) => {
+      logEvent('game:complete', data, 'game');
+      document.getElementById('stStatus').textContent = 'Complete!';
+    });
+    socket.on('game:awards', (data) => logEvent('game:awards', data, 'game'));
+    socket.on('game:error', (data) => logEvent('game:error', data, 'error'));
 
-    // Actions
+    // === Actions ===
     function createLobby() {
       const name = document.getElementById('playerName').value || 'Player';
       socket.emit('lobby:create', { name });
-      log('lobby:create { name: "' + name + '" }', 'send');
+      logEvent('lobby:create', { name }, 'send');
     }
 
     function joinLobby() {
@@ -199,92 +403,89 @@
       const code = document.getElementById('lobbyCode').value.toUpperCase();
       if (!code) { alert('Enter lobby code!'); return; }
       socket.emit('lobby:join', { code, name });
-      log('lobby:join { code: "' + code + '", name: "' + name + '" }', 'send');
+      logEvent('lobby:join', { code, name }, 'send');
     }
 
     function leaveLobby() {
       socket.emit('lobby:leave');
-      log('lobby:leave', 'send');
+      logEvent('lobby:leave', null, 'send');
+      document.getElementById('stLobby').textContent = '-';
+      document.getElementById('stStatus').textContent = '-';
     }
 
     function toggleReady() {
       isReady = !isReady;
       socket.emit('lobby:ready', { ready: isReady });
-      log('lobby:ready { ready: ' + isReady + ' }', 'send');
+      logEvent('lobby:ready', { ready: isReady }, 'send');
     }
 
     function startGame() {
       socket.emit('lobby:start');
-      log('lobby:start', 'send');
+      logEvent('lobby:start', null, 'send');
     }
 
     function updateSettings() {
       const rounds = parseInt(document.getElementById('rounds').value);
       const roundTimeSeconds = parseInt(document.getElementById('roundTime').value);
       socket.emit('lobby:settings', { rounds, roundTimeSeconds });
-      log('lobby:settings { rounds: ' + rounds + ', roundTimeSeconds: ' + roundTimeSeconds + ' }', 'send');
-    }
-
-    function submitPhoto() {
-      // In real app, this would be the path from /upload endpoint
-      socket.emit('game:submit', { photoPath: 'uploads/test.jpg' });
-      log('game:submit { photoPath: "uploads/test.jpg" }', 'send');
+      logEvent('lobby:settings', { rounds, roundTimeSeconds }, 'send');
     }
 
     async function uploadPhoto() {
       const fileInput = document.getElementById('photoInput');
-      const resultDiv = document.getElementById('uploadResult');
-      const previewDiv = document.getElementById('uploadPreview');
+      const statusEl = document.getElementById('uploadStatus');
+      const previewEl = document.getElementById('uploadPreview');
 
-      if (!fileInput.files || fileInput.files.length === 0) {
-        resultDiv.innerHTML = '<span style="color: #ff4444;">No file selected!</span>';
+      if (!fileInput.files?.length) {
+        statusEl.innerHTML = '<span class="error">No file selected</span>';
         return;
       }
 
-      const file = fileInput.files[0];
       const formData = new FormData();
-      formData.append('photo', file);
-
-      resultDiv.innerHTML = '<span style="color: #00d9ff;">Uploading...</span>';
-      previewDiv.innerHTML = '';
+      formData.append('photo', fileInput.files[0]);
+      statusEl.innerHTML = 'Uploading...';
 
       try {
-        const response = await fetch('http://localhost:3000/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          resultDiv.innerHTML = '<span style="color: #00ff88;">✅ Upload successful!</span><br>' +
-            '<pre style="color: #aaa; margin: 0.5rem 0;">' + JSON.stringify(data, null, 2) + '</pre>';
-
-          // Show preview of uploaded image
-          previewDiv.innerHTML = '<img src="http://localhost:3000/' + data.path + '" style="max-width: 200px; border-radius: 4px; margin-top: 0.5rem;">';
-
-          log('Upload success: ' + JSON.stringify(data), 'receive');
+        const res = await fetch('http://localhost:3000/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.innerHTML = '<span class="success">✅ Uploaded!</span>';
+          previewEl.innerHTML = '<img src="http://localhost:3000/' + data.path + '">';
+          lastUploadPath = data.path;
+          logEvent('upload:success', data, 'receive');
+          // Auto-submit to game
+          socket.emit('game:submit', { photoPath: data.path });
+          logEvent('game:submit', { photoPath: data.path }, 'send');
         } else {
-          resultDiv.innerHTML = '<span style="color: #ff4444;">❌ Error: ' + data.error + '</span>';
-          log('Upload error: ' + data.error, 'error');
+          statusEl.innerHTML = '<span class="error">❌ ' + data.error + '</span>';
         }
-      } catch (error) {
-        resultDiv.innerHTML = '<span style="color: #ff4444;">❌ Network error: ' + error.message + '</span>';
-        log('Upload network error: ' + error.message, 'error');
+      } catch (err) {
+        statusEl.innerHTML = '<span class="error">❌ Network error</span>';
       }
     }
 
-    function log(message, type = '') {
-      const logEl = document.getElementById('log');
-      const entry = document.createElement('div');
-      entry.className = 'log-entry ' + type;
-      entry.textContent = new Date().toLocaleTimeString() + ' | ' + message;
-      logEl.appendChild(entry);
-      logEl.scrollTop = logEl.scrollHeight;
+    // === Event Logger ===
+    function logEvent(name, data, type) {
+      const el = document.getElementById('events');
+      const time = new Date().toLocaleTimeString();
+      const preview = data ? (typeof data === 'string' ? data : JSON.stringify(data).slice(0, 50)) : '';
+      const fullData = data ? JSON.stringify(data, null, 2) : 'null';
+
+      const div = document.createElement('div');
+      div.className = 'event ' + type;
+      div.innerHTML = `
+        <div class="event-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="event-name">${name}</span>
+          <span class="event-preview">${preview}${preview.length >= 50 ? '...' : ''}</span>
+          <span class="event-time">${time}</span>
+        </div>
+        <div class="event-body">${fullData}</div>
+      `;
+      el.insertBefore(div, el.firstChild);
     }
 
-    function clearLog() {
-      document.getElementById('log').innerHTML = '';
+    function clearEvents() {
+      document.getElementById('events').innerHTML = '';
     }
   </script>
 </body>
