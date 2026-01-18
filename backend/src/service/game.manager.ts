@@ -17,7 +17,7 @@ import type {
 import type { Lobby } from '../lib/types/types.js';
 import { generateStory, type StoryGenInput } from './story.service.js';
 import { generateRecap, type BlankResult, type RecapResult } from './recap.service.js';
-import { judgeRound as callJudgeRound, type JudgeRoundInput, type PlayerSubmission, type RoundResult } from './judge.service.js';
+import { judgeRound, type JudgeRoundInput, type PlayerSubmission, type RoundResult } from './judge.service.js';
 
 // ============================================================================
 // Game Manager Class
@@ -234,7 +234,7 @@ export class GameManager {
                 submissions,
             };
 
-            const result: RoundResult = await callJudgeRound(judgeInput);
+            const result: RoundResult = await judgeRound(judgeInput);
 
             // Find the winner
             const winner = game.players.get(result.winnerPlayerId);
