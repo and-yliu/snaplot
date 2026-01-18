@@ -1,6 +1,6 @@
 // eslint-disable-next-line import/namespace
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, Animated, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
+import { NeoView } from '@/components/ui/NeoView';
 
 export default function RoundResultScreen() {
   const router = useRouter();
@@ -102,12 +103,12 @@ export default function RoundResultScreen() {
         )}
 
         {/* Judge's Comment */}
-        <Animated.View style={[styles.commentCard, { opacity: opacityAnim }]}>
+        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginBottom: 10 }}>
           {step >= 3 && (
-            <>
-              <Text style={styles.commentLabel}>Judge’s Comment:</Text>
+            <NeoView style={styles.commentNeoView}>
+              {/* <Text style={styles.commentLabel}>Judge’s Comment:</Text> */}
               <Text style={styles.commentText}>{comment}</Text>
-            </>
+            </NeoView>
           )}
         </Animated.View>
 
@@ -115,10 +116,10 @@ export default function RoundResultScreen() {
         {step >= 4 && (
           <View style={styles.footerContainer}>
             <View style={styles.reactionsRow}>
-              <ReactionIcon icon="thumbs-up" color="#E8C547" />
-              <ReactionIcon icon="thumbs-down" color="#E8C547" />
-              <ReactionIcon icon="egg" color="#E8C547" />
-              <ReactionIcon icon="rose" color="#FF6B6B" />
+              <NeoReactionButton icon="thumbs-up" color="#E8C547" />
+              <NeoReactionButton icon="thumbs-down" color="#E8C547" />
+              <NeoReactionButton icon="egg" color="#E8C547" />
+              <NeoReactionButton icon="rose" color="#FF6B6B" />
             </View>
 
             <NeoButton
@@ -135,12 +136,76 @@ export default function RoundResultScreen() {
   );
 }
 
-// Helper for Reaction Icons
-function ReactionIcon({ icon, color }: { icon: any, color: string }) {
+// Helper for Neo Reaction Buttons
+function NeoReactionButton({ icon, color }: { icon: any, color: string }) {
+  const [reactions, setReactions] = useState<number[]>([]);
+
+  const handlePress = () => {
+    const id = Date.now() + Math.random();
+    setReactions((prev) => [...prev, id]);
+  };
+
+  const removeReaction = (id: number) => {
+    setReactions((prev) => prev.filter((r) => r !== id));
+  };
+
   return (
-    <View style={styles.reactionButton}>
-      <Ionicons name={icon} size={32} color={color} />
+    <View style={styles.reactionContainer}>
+      {/* Helper Wrapper for Z-Index context if needed, but absolute positioning in relative container works */}
+      {reactions.map((id) => (
+        <FlyingEmoji key={id} icon={icon} color={color} onComplete={() => removeReaction(id)} />
+      ))}
+
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handlePress}
+        style={styles.touchableReaction}
+      >
+        <View style={styles.reactionShadow} />
+        <View style={styles.reactionContent}>
+          <Ionicons name={icon} size={28} color={color} />
+        </View>
+      </TouchableOpacity>
     </View>
+  );
+}
+
+function FlyingEmoji({ icon, color, onComplete }: { icon: any, color: string, onComplete: () => void }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start(onComplete);
+  }, []);
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -100] // Fly up 100px
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [1, 1, 0] // Fade out at end
+  });
+
+  const scale = anim.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0.5, 1.2, 1] // Pop effect
+  });
+
+  return (
+    <Animated.View style={[
+      styles.flyingEmoji,
+      {
+        transform: [{ translateY }, { scale }],
+        opacity
+      }
+    ]}>
+      <Ionicons name={icon} size={28} color={color} />
+    </Animated.View>
   );
 }
 
@@ -150,12 +215,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neo.background, // Beige
   },
   content: {
-    flex: 1, // Ensure content takes fill height if needed for centering
+    flex: 1,
     paddingHorizontal: 24,
     width: '100%',
     paddingBottom: 20,
     paddingTop: 20,
-    // paddingTop removed to avoid double padding with safe area
   },
   header: {
     width: '100%',
@@ -169,44 +233,38 @@ const styles = StyleSheet.create({
   },
   winnerContainer: {
     width: '100%',
-    alignItems: 'flex-start', // Left align text per standard
+    alignItems: 'flex-start',
     marginBottom: 10,
   },
   winnerText: {
     fontSize: 18,
-    fontFamily: 'Nunito_700Bold', // Mono-ish look in design but trying to stick to Nunito
+    fontFamily: 'Nunito_700Bold',
     marginBottom: 5,
     color: '#000',
     lineHeight: 24,
   },
   imageContainer: {
     width: '100%',
-    aspectRatio: 1, // Square-ish
-    backgroundColor: '#ddd',
-    borderWidth: 0,
-    // Design image has no border? "User sample" seems raw. 
-    // But our Neo style usually has borders. 
-    // I'll leave it clean/raw for now as per sample.
-    overflow: 'hidden',
+    aspectRatio: 1,
+    backgroundColor: '#fff',
+    borderWidth: 2, // Neo border
+    borderColor: Colors.neo.border,
     marginBottom: 5,
+    overflow: 'hidden',
   },
   winnerImage: {
     width: '100%',
     height: '100%',
   },
-  commentCard: {
+  // NeoView handles container styles, but we can override if needed
+  commentNeoView: {
     width: '100%',
-    backgroundColor: '#FFF5EB', // Light peach/white mix
-    borderWidth: 1,
-    borderColor: '#C89B7B', // Brownish border
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 10,
+    backgroundColor: '#FFF5EB',
   },
   commentLabel: {
     fontSize: 16,
     fontFamily: 'Nunito_700Bold',
-    color: '#C89B7B', // Match border/theme
+    color: '#C89B7B',
     marginBottom: 4,
   },
   commentText: {
@@ -224,27 +282,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    paddingHorizontal: 10,
     marginBottom: 5,
+    zIndex: 10, // Ensure reactions are above other things if they fly out?
   },
-  reactionButton: {
+  // Custom Neo Button Styles for Icons
+  reactionContainer: {
     width: 60,
     height: 60,
-    backgroundColor: '#D4B498', // Muted brown/peach
+    position: 'relative',
+    // No overflow hidden so emoji can fly out
+  },
+  touchableReaction: {
+    width: '100%',
+    height: '100%',
+  },
+  reactionShadow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.neo.shadow,
+    borderRadius: 12,
+  },
+  reactionContent: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.neo.card,
+    borderWidth: 2,
+    borderColor: Colors.neo.border,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  flyingEmoji: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0, // Center horizontally in container
+    bottom: 0, // Center vertically in container
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100, // Top
+    pointerEvents: 'none', // Don't block clicks while flying (though it moves fast)
+  },
   nextButton: {
     width: '100%',
-    backgroundColor: '#C17F59', // Darker brown for primary button in this context? 
-    // Or reusing Neo layout. user said "Next Round button"
-    // Keep standard NeoButton style but maybe override color?
-    // User sample has a Brown button. 
-    // I will use standard NeoButton style for consistency unless user wants exact match.
-    // The sample image button is BROWN. I should try to match the sample if possible, or stick to app theme.
-    // I'll stick to app theme (Lavender) for now to keep consistency, 
-    // but the sample is very Brown/Earth toned.
-    // Let's use the standard variant="primary" first.
   }
 });
