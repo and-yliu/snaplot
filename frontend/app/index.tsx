@@ -15,7 +15,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [nickname, setNickname] = useState('');
   const [permission, requestPermission] = useCameraPermissions();
-  const { isConnected, lobbyState, error, createLobby } = useSocket();
+  const { isConnected, error, createLobby, pendingNavigation, clearPendingNavigation } = useSocket();
 
   // Request camera permission when component mounts
   useEffect(() => {
@@ -24,18 +24,19 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Navigate to host waiting room when lobby is created (only if we're the host)
+  // Navigate when pending navigation is set (only on create)
   useEffect(() => {
-    if (lobbyState && lobbyState.code) {
+    if (pendingNavigation && pendingNavigation.type === 'host-waiting-room') {
+      clearPendingNavigation();
       router.push({
         pathname: '/host-waiting-room',
         params: {
           nickname,
-          roomPin: lobbyState.code
+          roomPin: pendingNavigation.roomPin
         }
       });
     }
-  }, [lobbyState]);
+  }, [pendingNavigation]);
 
   // Show error if lobby creation fails
   useEffect(() => {

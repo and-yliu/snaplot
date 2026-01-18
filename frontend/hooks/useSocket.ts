@@ -5,7 +5,7 @@
  * Uses module-level state that persists across component instances.
  */
 
-import { useEffect, useState, useCallback, useSyncExternalStore } from 'react';
+import { useEffect, useCallback, useSyncExternalStore } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 // Types matching backend
@@ -44,6 +44,13 @@ export interface RoundPayload {
     totalRounds: number;
 }
 
+// Navigation types for pending navigation
+export type PendingNavigation =
+    | { type: 'host-waiting-room'; roomPin: string }
+    | { type: 'player-waiting-room'; roomPin: string }
+    | { type: 'game' }
+    | null;
+
 // Server URL - update this to your backend URL
 const SERVER_URL = 'http://10.19.130.64:3000';
 
@@ -57,6 +64,7 @@ interface SocketState {
     error: string | null;
     gameStart: GameStartPayload | null;
     currentRound: RoundPayload | null;
+    pendingNavigation: PendingNavigation;
 }
 
 let globalState: SocketState = {
@@ -65,6 +73,7 @@ let globalState: SocketState = {
     error: null,
     gameStart: null,
     currentRound: null,
+    pendingNavigation: null,
 };
 
 const listeners = new Set<() => void>();
@@ -94,6 +103,9 @@ function getSnapshot() {
 let socketInstance: Socket | null = null;
 let isInitialized = false;
 
+// Track pending action to determine navigation type
+let pendingAction: 'create' | 'join' | null = null;
+
 function getSocket(): Socket {
     if (!socketInstance) {
         socketInstance = io(SERVER_URL, {
@@ -117,11 +129,27 @@ function getSocket(): Socket {
 
             socketInstance.on('lobby:state', (state: LobbyState) => {
                 console.log('Lobby state received:', state);
-                setGlobalState({ lobbyState: state, error: null });
+
+                // Only set pending navigation on create/join, not on updates
+                if (pendingAction && state.code) {
+                    const navType = pendingAction === 'create'
+                        ? 'host-waiting-room'
+                        : 'player-waiting-room';
+                    setGlobalState({
+                        lobbyState: state,
+                        error: null,
+                        pendingNavigation: { type: navType, roomPin: state.code }
+                    });
+                    pendingAction = null; // Clear pending action
+                } else {
+                    // Just update lobby state without navigation
+                    setGlobalState({ lobbyState: state, error: null });
+                }
             });
 
             socketInstance.on('lobby:error', ({ message }: { message: string }) => {
                 console.log('Lobby error:', message);
+                pendingAction = null; // Clear pending action on error
                 setGlobalState({ error: message });
             });
 
@@ -137,7 +165,10 @@ function getSocket(): Socket {
 
             socketInstance.on('game:start', (payload: GameStartPayload) => {
                 console.log('Game started:', payload);
-                setGlobalState({ gameStart: payload });
+                setGlobalState({
+                    gameStart: payload,
+                    pendingNavigation: { type: 'game' }
+                });
             });
 
             socketInstance.on('game:round', (payload: RoundPayload) => {
@@ -174,20 +205,29 @@ export function useSocket() {
 
     // Create a new lobby
     const createLobby = useCallback((name: string) => {
-        setGlobalState({ error: null });
+        pendingAction = 'create';
+        setGlobalState({ error: null, pendingNavigation: null });
         socket.emit('lobby:create', { name });
     }, []);
 
     // Join an existing lobby
     const joinLobby = useCallback((code: string, name: string) => {
-        setGlobalState({ error: null });
+        pendingAction = 'join';
+        setGlobalState({ error: null, pendingNavigation: null });
         socket.emit('lobby:join', { code: code.toUpperCase(), name });
     }, []);
 
     // Leave the current lobby
     const leaveLobby = useCallback(() => {
         socket.emit('lobby:leave');
-        setGlobalState({ lobbyState: null });
+        pendingAction = null;
+        setGlobalState({
+            lobbyState: null,
+            gameStart: null,
+            currentRound: null,
+            error: null,
+            pendingNavigation: null,
+        });
     }, []);
 
     // Toggle ready status
@@ -210,6 +250,11 @@ export function useSocket() {
         socket.emit('game:submit', { photoPath });
     }, []);
 
+    // Clear pending navigation after navigation has occurred
+    const clearPendingNavigation = useCallback(() => {
+        setGlobalState({ pendingNavigation: null });
+    }, []);
+
     return {
         socket,
         isConnected: state.isConnected,
@@ -217,6 +262,7 @@ export function useSocket() {
         error: state.error,
         gameStart: state.gameStart,
         currentRound: state.currentRound,
+        pendingNavigation: state.pendingNavigation,
         createLobby,
         joinLobby,
         leaveLobby,
@@ -224,5 +270,6 @@ export function useSocket() {
         updateSettings,
         startGame,
         submitPhoto,
+        clearPendingNavigation,
     };
 }

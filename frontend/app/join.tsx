@@ -13,20 +13,21 @@ export default function JoinScreen() {
   const router = useRouter();
   const { nickname } = useLocalSearchParams<{ nickname: string }>();
   const [pin, setPin] = useState('');
-  const { isConnected, lobbyState, error, joinLobby } = useSocket();
+  const { isConnected, error, joinLobby, pendingNavigation, clearPendingNavigation } = useSocket();
 
-  // Navigate to player waiting room when lobby is joined
+  // Navigate when pending navigation is set (only on join)
   useEffect(() => {
-    if (lobbyState && lobbyState.code) {
+    if (pendingNavigation && pendingNavigation.type === 'player-waiting-room') {
+      clearPendingNavigation();
       router.push({
         pathname: '/player-waiting-room',
         params: {
           nickname,
-          roomPin: lobbyState.code,
+          roomPin: pendingNavigation.roomPin,
         }
       });
     }
-  }, [lobbyState]);
+  }, [pendingNavigation]);
 
   // Show error if join fails
   useEffect(() => {

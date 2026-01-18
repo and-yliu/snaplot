@@ -17,7 +17,7 @@ export default function HostWaitingRoomScreen() {
     const router = useRouter();
 
     const nickname = params.nickname;
-    const { lobbyState, error, updateSettings, startGame, gameStart } = useSocket();
+    const { lobbyState, error, updateSettings, startGame, setReady, leaveLobby, socket, pendingNavigation, clearPendingNavigation } = useSocket();
 
     const roomPin = params.roomPin || lobbyState?.code || '----';
     const players = lobbyState?.players || [{ id: '1', name: nickname || 'Host', isReady: true }];
@@ -50,12 +50,23 @@ export default function HostWaitingRoomScreen() {
         startGame();
     };
 
+    const handleLeaveRoom = () => {
+        leaveLobby();
+        router.replace('/');
+    };
+
+    const currentPlayerId = socket?.id;
+    const isHost = !!(lobbyState && currentPlayerId && lobbyState.hostId === currentPlayerId);
+    const hostPlayer = lobbyState?.players?.find(p => p.id === currentPlayerId);
+    const isHostReady = hostPlayer?.isReady ?? false;
+
     // Navigate to game when it starts
     useEffect(() => {
-        if (gameStart) {
+        if (pendingNavigation && pendingNavigation.type === 'game') {
+            clearPendingNavigation();
             router.push('/game');
         }
-    }, [gameStart]);
+    }, [pendingNavigation, clearPendingNavigation, router]);
 
     // Show errors
     useEffect(() => {
@@ -142,11 +153,16 @@ export default function HostWaitingRoomScreen() {
                 </View>
             </View>
 
-            {/* Footer / Start Button */}
-            <View className="p-5 pb-10">
+            {/* Footer */}
+            <View className="p-5 pb-10 gap-4">
                 <NeoButton
-                    title="START GAME"
-                    onPress={handleStartGame}
+                    title="LEAVE ROOM"
+                    onPress={handleLeaveRoom}
+                    variant="outline"
+                />
+                <NeoButton
+                    title={isHost && !isHostReady ? 'READY' : 'START GAME'}
+                    onPress={isHost && !isHostReady ? () => setReady(true) : handleStartGame}
                     variant="primary"
                 />
             </View>

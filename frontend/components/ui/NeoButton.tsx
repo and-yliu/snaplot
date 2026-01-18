@@ -58,9 +58,9 @@ export function NeoButton({
       style={style}
       disabled={disabled}
     >
-      <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-none" />
+      <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-xl" />
       <View
-        className={`h-full border-2 border-neo-border items-center justify-center rounded-none ${backgroundClassName}`}
+        className={`h-full border-2 border-neo-border items-center justify-center rounded-xl ${backgroundClassName}`}
         style={backgroundColor ? { backgroundColor: getBackgroundColor() } : undefined}
       >
         <Text

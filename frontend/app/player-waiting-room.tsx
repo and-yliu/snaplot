@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,10 +16,9 @@ export default function PlayerWaitingRoomScreen() {
 
     const router = useRouter();
 
-    const nickname = params.nickname;
     const roomPin = params.roomPin;
 
-    const { lobbyState, error, setReady, gameStart, socket } = useSocket();
+    const { lobbyState, error, setReady, leaveLobby, socket, pendingNavigation, clearPendingNavigation } = useSocket();
 
     // Get current player's ready status from lobby state
     const currentPlayerId = socket?.id;
@@ -37,12 +36,18 @@ export default function PlayerWaitingRoomScreen() {
         setReady(!isReady);
     };
 
+    const handleLeaveRoom = () => {
+        leaveLobby();
+        router.replace('/');
+    };
+
     // Navigate to game when it starts
     useEffect(() => {
-        if (gameStart) {
+        if (pendingNavigation && pendingNavigation.type === 'game') {
+            clearPendingNavigation();
             router.push('/game');
         }
-    }, [gameStart]);
+    }, [pendingNavigation, clearPendingNavigation, router]);
 
     // Show errors
     useEffect(() => {
@@ -157,8 +162,13 @@ export default function PlayerWaitingRoomScreen() {
                 </View>
             </View>
 
-            {/* Ready Button */}
-            <View className="p-5 pb-24">
+            {/* Footer */}
+            <View className="p-5 pb-24 gap-4">
+                <NeoButton
+                    title="LEAVE ROOM"
+                    onPress={handleLeaveRoom}
+                    variant="outline"
+                />
                 <NeoButton
                     title={isReady ? "READY ✓" : "READY"}
                     onPress={handleReady}
