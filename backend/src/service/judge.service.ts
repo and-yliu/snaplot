@@ -53,7 +53,7 @@ export interface RoundResult {
 // ============================================================================
 
 const JUDGE_MODEL = "google/gemini-3-flash-preview";
-const BARD_MODEL = "google/gemini-3-flash-preview";
+const BARD_MODEL = "google/gemini-3-pro-preview";
 
 // ============================================================================
 // Judge Functions

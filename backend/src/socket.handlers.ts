@@ -66,6 +66,10 @@ export function setupSocketHandlers(io: Server): void {
             // Show "Judging..." UI immediately when timer ends
             io.to(lobbyCode).emit('game:judging');
         },
+        onAllSubmitted: (lobbyCode) => {
+            // Show "Judging..." UI immediately when all players submit early
+            io.to(lobbyCode).emit('game:judging');
+        },
         onRoundEnd: async (lobbyCode) => {
             await handleRoundEnd(io, lobbyCode);
         },

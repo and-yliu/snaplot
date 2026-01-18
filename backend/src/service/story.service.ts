@@ -34,7 +34,7 @@ export interface GeneratedStory {
 // Model Configuration
 // ============================================================================
 
-const STORY_MODEL = "google/gemini-3-flash-preview";
+const STORY_MODEL = "google/gemini-3-pro-preview";
 
 // ============================================================================
 // Story Functions

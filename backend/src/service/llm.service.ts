@@ -83,6 +83,7 @@ export async function chatWithSchema<T>(
 ): Promise<T> {
     const response = await getClient().chat.send({
         model,
+        reasoning: { effort: 'low' },
         messages,
         responseFormat: {
             type: "json_schema",

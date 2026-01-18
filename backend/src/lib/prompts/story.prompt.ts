@@ -10,7 +10,7 @@ export const STORY_SYSTEM_PROMPT = `You are a creative storyteller for [IRL Ques
 Generate a fun, short Mad Libs-style story with EXACTLY the requested number of blanks.
 
 **STORY REQUIREMENTS:**
-1. The story should be 3-6 sentences long
+1. The story should be 3-6 sentences long, written in plain language that is easy to understand for everyone.
 2. Each blank is marked with {0}, {1}, {2}, etc.
 3. The story should be silly, fun, and suitable for a party game
 4. Blanks should be objects that players can photograph in real life

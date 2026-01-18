@@ -36,6 +36,7 @@ export class GameManager {
     private onTick: ((lobbyCode: string, remainingSeconds: number) => void) | undefined = undefined;
     private onRoundEnd: ((lobbyCode: string) => void) | undefined = undefined;
     private onGracePeriodStart: ((lobbyCode: string) => void) | undefined = undefined;
+    private onAllSubmitted: ((lobbyCode: string) => void) | undefined = undefined;
 
     /**
      * Register event callbacks
@@ -44,10 +45,12 @@ export class GameManager {
         onTick?: (lobbyCode: string, remainingSeconds: number) => void;
         onRoundEnd?: (lobbyCode: string) => void;
         onGracePeriodStart?: (lobbyCode: string) => void;
+        onAllSubmitted?: (lobbyCode: string) => void;
     }) {
         this.onTick = callbacks.onTick;
         this.onRoundEnd = callbacks.onRoundEnd;
         this.onGracePeriodStart = callbacks.onGracePeriodStart;
+        this.onAllSubmitted = callbacks.onAllSubmitted;
     }
 
     /**
@@ -251,6 +254,10 @@ export class GameManager {
 
         // Check if all players have submitted
         if (this.allPlayersSubmitted(lobbyCode)) {
+            // Emit judging indicator immediately (same as grace period start)
+            if (this.onAllSubmitted) {
+                this.onAllSubmitted(lobbyCode);
+            }
             this.tryEndRound(lobbyCode);
         }
 
