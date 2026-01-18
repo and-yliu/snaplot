@@ -282,6 +282,11 @@ function getSocket(): Socket {
                 lastRoundKey = key;
 
                 console.log('Round:', payload);
+
+                // Only navigate to /game if we're coming from round-result screen (roundResult exists).
+                // On initial game start, roundResult is null and game:start already handles navigation.
+                const shouldNavigateToGame = globalState.roundResult !== null;
+
                 setGlobalState({
                     currentRound: payload,
                     tick: payload.remainingSeconds !== undefined ? { remainingSeconds: payload.remainingSeconds } : null,
@@ -290,7 +295,7 @@ function getSocket(): Socket {
                     roundResult: null,
                     roundResultContext: null,
                     nextRoundStatus: null,
-                    pendingNavigation: { type: 'game' },
+                    ...(shouldNavigateToGame ? { pendingNavigation: { type: 'game' } } : {}),
                 });
             });
 

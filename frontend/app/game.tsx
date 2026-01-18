@@ -1,12 +1,93 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Alert, StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
+import { Alert, StyleSheet, Text, View, TouchableOpacity, Image, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { useSocket } from '@/hooks/useSocket';
+import '../global.css';
+
+// Animated Judging Indicator Component
+function JudgingIndicator() {
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const rotateAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        // Pulsing animation
+        const pulse = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1.1,
+                    duration: 600,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 600,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        // Gentle rotation animation for the icon
+        const rotate = Animated.loop(
+            Animated.sequence([
+                Animated.timing(rotateAnim, {
+                    toValue: 1,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(rotateAnim, {
+                    toValue: -1,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(rotateAnim, {
+                    toValue: 0,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+
+        pulse.start();
+        rotate.start();
+
+        return () => {
+            pulse.stop();
+            rotate.stop();
+        };
+    }, [pulseAnim, rotateAnim]);
+
+    const rotateInterpolate = rotateAnim.interpolate({
+        inputRange: [-1, 1],
+        outputRange: ['-15deg', '15deg'],
+    });
+
+    return (
+        <Animated.View
+            className="items-center justify-center py-3 px-6 rounded-2xl bg-neo-primary"
+            style={[
+                {
+                    transform: [{ scale: pulseAnim }],
+                    shadowColor: '#A881EA',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 8,
+                    elevation: 8,
+                },
+            ]}
+        >
+            <Text className="text-lg font-bold text-white tracking-wider">JUDGING</Text>
+        </Animated.View>
+    );
+}
 
 export default function GameScreen() {
     const router = useRouter();
@@ -114,44 +195,51 @@ export default function GameScreen() {
     const submittedCount = submittedPlayerIds.length;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <View style={styles.header}>
-                <View style={styles.topRow}>
-                    <Text style={styles.timeText}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                    <View style={styles.icons}>
+        <SafeAreaView className="flex-1 bg-neo-background px-6" edges={['top', 'bottom']}>
+            {/* Header */}
+            <View className="mb-5 items-center">
+                {/* Top Row - Hidden */}
+                <View className="hidden flex-row justify-between mb-2.5 w-full">
+                    <Text className="font-semibold text-sm text-neo-text">
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    <View className="flex-row gap-1">
                         <Ionicons name="cellular" size={20} color="black" />
                         <Ionicons name="wifi" size={20} color="black" />
                         <Ionicons name="battery-full" size={20} color="black" />
                     </View>
                 </View>
 
-
-                <Text style={styles.promptText}>
+                <Text className="text-2xl text-neo-text leading-8 mb-4 mt-5 font-bold text-center">
                     {promptText}
                 </Text>
 
-                <Text style={styles.criteriaText}>
-                    Criteria: <Text style={styles.criteriaHighlight}>{criteriaText}</Text>
+                <Text className="text-xl font-semibold text-neo-text mb-6 text-center">
+                    Criteria: <Text className="font-bold">{criteriaText}</Text>
                 </Text>
-                {isJudging ? <Text style={styles.judgingText}>Judging...</Text> : null}
 
-                {/* Timer Bar */}
-                <View style={styles.timerContainer}>
-                    <Text style={styles.timerText}>00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}</Text>
-                    <View style={styles.progressBarBg}>
-                        <View
-                            style={[
-                                styles.progressBarFill,
-                                { width: `${timeProgressPct}%` }
-                            ]}
-                        />
+                {/* Timer Bar or Judging Indicator */}
+                {isJudging ? (
+                    <JudgingIndicator />
+                ) : (
+                    <View className="flex-row items-center gap-3 w-full">
+                        <Text className="text-lg font-bold w-[70px] text-neo-text shrink-0" style={{ fontVariant: ['tabular-nums'] }}>
+                            00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
+                        </Text>
+                        <View className="flex-1 h-1.5 bg-black/10 rounded-sm">
+                            <View
+                                className="h-full bg-neo-text rounded-sm"
+                                style={{ width: `${timeProgressPct}%` }}
+                            />
+                        </View>
                     </View>
-                </View>
+                )}
             </View>
 
-            <View style={styles.cameraContainer}>
+            {/* Camera Container */}
+            <View className="flex-1 rounded-2xl overflow-hidden bg-black mb-5 border-2 border-neo-border">
                 {photo ? (
-                    <Image source={{ uri: photo }} style={styles.camera} resizeMode="cover" />
+                    <Image source={{ uri: photo }} className="flex-1 justify-end items-center" resizeMode="cover" />
                 ) : (
                     <>
                         <CameraView
@@ -159,13 +247,13 @@ export default function GameScreen() {
                             facing="back"
                             ref={cameraRef}
                         />
-                        <View pointerEvents="box-none" style={styles.cameraOverlay}>
+                        <View pointerEvents="box-none" className="absolute left-0 right-0 bottom-8 items-center">
                             <TouchableOpacity
-                                style={styles.shutterButton}
+                                className="w-[72px] h-[72px] rounded-full bg-[#E8CA98] justify-center items-center border-4 border-white shadow-md"
                                 onPress={handleTakePhoto}
                                 activeOpacity={0.7}
                             >
-                                <View style={styles.shutterInner} />
+                                <View className="absolute w-[60px] h-[60px] rounded-full border border-black/10" />
                                 <Ionicons name="camera" size={24} color="#333" />
                             </TouchableOpacity>
                         </View>
@@ -173,190 +261,34 @@ export default function GameScreen() {
                 )}
             </View>
 
-            <View style={styles.footer}>
-                {photo ? (
-                    <View style={styles.reviewControls}>
-                        {!hasSubmitted ? (
-                            <>
-                                <NeoButton
-                                    title={isUploading ? 'uploading...' : 'submit'}
-                                    onPress={handleSubmit}
-                                    style={styles.submitButtonContainer}
-                                    variant="primary"
-                                />
-                                <NeoButton
-                                    title="retake"
-                                    onPress={handleRetake}
-                                    style={styles.retakeButtonContainer}
-                                    variant="outline"
-                                />
-                            </>
-                        ) : null}
-                        <View style={styles.statusContainer}>
-                            <Text style={styles.statusCount}>{submittedCount}/{totalPlayers || 0}</Text>
-                            <Text style={styles.statusLabel}>have submitted</Text>
-                        </View>
+            {/* Footer */}
+            <View className="h-[100px] justify-center">
+                <View className="flex-row items-center gap-4">
+                    {/* Status indicator - always on the left */}
+                    <View className="items-start min-w-[100px]">
+                        <Text className="text-xl font-bold text-neo-text">{submittedCount}/{totalPlayers || 0}</Text>
+                        <Text className="text-xs font-semibold text-neo-text">have submitted</Text>
                     </View>
-                ) : (
-                    <View style={styles.statusContainer}>
-                        <Text style={styles.statusCount}>{submittedCount}/{totalPlayers || 0}</Text>
-                        <Text style={styles.statusLabel}>have submitted</Text>
-                    </View>
-                )}
+
+                    {/* Buttons - on the right, only show when photo taken and not submitted */}
+                    {photo && !hasSubmitted ? (
+                        <>
+                            <NeoButton
+                                title={isUploading ? 'uploading...' : 'submit'}
+                                onPress={handleSubmit}
+                                style={{ flex: 1 }}
+                                variant="primary"
+                            />
+                            <NeoButton
+                                title="retake"
+                                onPress={handleRetake}
+                                style={{ flex: 1, opacity: 0.9 }}
+                                variant="outline"
+                            />
+                        </>
+                    ) : null}
+                </View>
             </View>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.neo.background,
-        paddingHorizontal: 24, // Matched to 24
-    },
-    header: {
-        marginBottom: 20,
-        alignItems: 'center', // Center content
-    },
-    topRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-        width: '100%',
-        display: 'none',
-    },
-    timeText: {
-        fontFamily: 'Nunito_600SemiBold',
-        fontSize: 14,
-        color: Colors.neo.text,
-    },
-    icons: {
-        flexDirection: 'row',
-        gap: 5,
-    },
-    promptText: {
-        fontSize: 24,
-        color: Colors.neo.text,
-        lineHeight: 30,
-        marginBottom: 16,
-        marginTop: 20,
-        fontFamily: 'Nunito_700Bold',
-        textAlign: 'center',
-    },
-    criteriaText: {
-        fontSize: 20,
-        fontFamily: 'Nunito_600SemiBold',
-        color: Colors.neo.text,
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    criteriaHighlight: {
-        fontFamily: 'Nunito_700Bold',
-    },
-    judgingText: {
-        fontSize: 16,
-        fontFamily: 'Nunito_700Bold',
-        color: Colors.neo.text,
-        marginBottom: 16,
-    },
-    timerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        width: '100%',
-    },
-    timerText: {
-        fontSize: 18,
-        fontFamily: 'Nunito_700Bold',
-        fontVariant: ['tabular-nums'],
-        width: 70,
-        color: Colors.neo.text,
-        flexShrink: 0,
-    },
-    progressBarBg: {
-        flex: 1,
-        height: 6,
-        backgroundColor: 'rgba(0,0,0,0.1)', // Light track for contrast
-        borderRadius: 3,
-    },
-    progressBarFill: {
-        height: '100%',
-        backgroundColor: Colors.neo.text,
-        borderRadius: 3,
-    },
-    cameraContainer: {
-        flex: 1,
-        borderRadius: 20,
-        overflow: 'hidden',
-        backgroundColor: '#000',
-        marginBottom: 20,
-        borderWidth: 2,
-        borderColor: Colors.neo.border, // Use border color
-    },
-    camera: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
-    cameraOverlay: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 30,
-        alignItems: 'center',
-    },
-    shutterButton: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        backgroundColor: '#E8CA98', // Keep consistent or change to Neo? Kept for now
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 4,
-        borderColor: '#FFF',
-        shadowColor: Colors.neo.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-    },
-    shutterInner: {
-        position: 'absolute',
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.1)',
-    },
-    footer: {
-        height: 100,
-        justifyContent: 'center',
-    },
-    reviewControls: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-    },
-    submitButtonContainer: {
-        flex: 1,
-    },
-    retakeButtonContainer: {
-        flex: 1,
-        opacity: 0.9,
-    },
-    statusContainer: {
-        marginLeft: 10,
-        alignItems: 'flex-end',
-        minWidth: 100,
-    },
-    statusCount: {
-        fontSize: 20,
-        fontFamily: 'Nunito_700Bold',
-        color: Colors.neo.text,
-    },
-    statusLabel: {
-        fontSize: 12,
-        fontFamily: 'Nunito_600SemiBold',
-        color: Colors.neo.text,
-        textAlign: 'right',
-    },
-});
