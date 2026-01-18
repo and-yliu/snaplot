@@ -45,7 +45,8 @@
           "cameraPermission": "Allow Snapplot to access your camera to take photos for the game."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

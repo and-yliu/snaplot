@@ -9,6 +9,7 @@ interface NeoButtonProps {
   className?: string;
   backgroundColor?: string;
   textColor?: string;
+  disabled?: boolean;
 }
 
 export function NeoButton({
@@ -19,8 +20,10 @@ export function NeoButton({
   className,
   backgroundColor,
   textColor,
+  disabled,
 }: NeoButtonProps) {
   const getBackgroundColor = () => {
+    if (disabled) return '#E0E0E0'; // Fallback if disabled color not defined
     if (backgroundColor) return backgroundColor;
     switch (variant) {
       case 'primary':
@@ -35,6 +38,7 @@ export function NeoButton({
   };
 
   const getTextColor = () => {
+    if (disabled) return '#666666';
     if (textColor) return textColor;
     return Colors.neo.text;
   };
@@ -52,6 +56,7 @@ export function NeoButton({
       onPress={onPress}
       className={`relative h-[50px] ${className ?? ''}`}
       style={style}
+      disabled={disabled}
     >
       <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-xl" />
       <View
@@ -65,6 +70,6 @@ export function NeoButton({
           {title}
         </Text>
       </View>
-    </TouchableOpacity>
+    </TouchableOpacity >
   );
 }

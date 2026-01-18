@@ -19,13 +19,13 @@ export default function GameScreen() {
     const [submittedCount, setSubmittedCount] = useState(3); // Mock data
 
     useEffect(() => {
-        if (timeLeft > 0 && !photo) {
+        if (timeLeft > 0) {
             const timer = setInterval(() => {
                 setTimeLeft((prev) => prev - 1);
             }, 1000);
             return () => clearInterval(timer);
         }
-    }, [timeLeft, photo]);
+    }, [timeLeft]);
 
     if (!permission) {
         // Camera permissions are still loading.
@@ -54,13 +54,10 @@ export default function GameScreen() {
 
     const handleSubmit = () => {
         setIsSubmitting(true);
-        // Simulate submission
-        setTimeout(() => {
-            setIsSubmitting(false);
-            // Navigate to results or waiting screen? For now just log
-            console.log('Submitted photo:', photo);
-            router.push('/'); // Go back home for now, or maybe staying here waiting for others
-        }, 1000);
+        console.log('Submitted photo:', photo);
+        // Navigate immediately
+        router.push('/round-result' as any);
+        setIsSubmitting(false);
     };
 
     return (
@@ -75,7 +72,7 @@ export default function GameScreen() {
                     </View>
                 </View>
 
-                <Text style={styles.promptLabel}>Show them:</Text>
+
                 <Text style={styles.promptText}>
                     Something you would use when in a fight with crocodiles
                 </Text>
@@ -128,15 +125,13 @@ export default function GameScreen() {
                             title="submit"
                             onPress={handleSubmit}
                             style={styles.submitButtonContainer}
-                            backgroundColor="#C5835C"
-                            textColor="#FFF"
+                            variant="primary"
                         />
                         <NeoButton
                             title="retake"
                             onPress={handleRetake}
                             style={styles.retakeButtonContainer}
-                            backgroundColor="#D2A27C"
-                            textColor="#FFF"
+                            variant="outline"
                         />
                         <View style={styles.statusContainer}>
                             <Text style={styles.statusCount}>{submittedCount}/7</Text>
@@ -158,68 +153,71 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.neo.background,
-        paddingHorizontal: 20,
+        paddingHorizontal: 24, // Matched to 24
     },
     header: {
         marginBottom: 20,
+        alignItems: 'center', // Center content
     },
     topRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 10,
-        display: 'none', // Hiding fake status bar since we have SafeAreaView
+        width: '100%',
+        display: 'none',
     },
     timeText: {
-        fontWeight: '600',
+        fontFamily: 'Nunito_600SemiBold',
         fontSize: 14,
+        color: Colors.neo.text,
     },
     icons: {
         flexDirection: 'row',
         gap: 5,
     },
-    promptLabel: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: Colors.neo.text,
-        marginBottom: 8,
-    },
     promptText: {
-        fontSize: 18,
+        fontSize: 24,
         color: Colors.neo.text,
-        lineHeight: 24,
-        marginBottom: 20,
-        fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', // Or use a custom font if available
+        lineHeight: 30,
+        marginBottom: 16,
+        marginTop: 20,
+        fontFamily: 'Nunito_700Bold',
+        textAlign: 'center',
     },
     criteriaText: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 20,
+        fontFamily: 'Nunito_600SemiBold',
         color: Colors.neo.text,
-        marginBottom: 20,
+        marginBottom: 24,
+        textAlign: 'center',
     },
     criteriaHighlight: {
-        // You could add a highlight color or underline here if needed
+        fontFamily: 'Nunito_700Bold',
     },
     timerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
+        width: '100%',
     },
     timerText: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: 'Nunito_700Bold',
         fontVariant: ['tabular-nums'],
-        width: 60,
+        width: 70,
+        color: Colors.neo.text,
+        flexShrink: 0,
     },
     progressBarBg: {
         flex: 1,
-        height: 4,
-        backgroundColor: '#E0E0E0',
-        borderRadius: 2,
+        height: 6,
+        backgroundColor: 'rgba(0,0,0,0.1)', // Light track for contrast
+        borderRadius: 3,
     },
     progressBarFill: {
         height: '100%',
-        backgroundColor: Colors.neo.text, // or a primary color
-        borderRadius: 2,
+        backgroundColor: Colors.neo.text,
+        borderRadius: 3,
     },
     cameraContainer: {
         flex: 1,
@@ -228,7 +226,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
         marginBottom: 20,
         borderWidth: 2,
-        borderColor: Colors.neo.text,
+        borderColor: Colors.neo.border, // Use border color
     },
     camera: {
         flex: 1,
@@ -241,14 +239,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     shutterButton: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: '#E8CA98', // Light brownish/beige from screenshot
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#E8CA98', // Keep consistent or change to Neo? Kept for now
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 4,
         borderColor: '#FFF',
+        shadowColor: Colors.neo.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
     },
     shutterInner: {
         position: 'absolute',
@@ -281,12 +283,13 @@ const styles = StyleSheet.create({
     },
     statusCount: {
         fontSize: 20,
-        fontWeight: 'bold',
-        fontStyle: 'italic',
+        fontFamily: 'Nunito_700Bold',
+        color: Colors.neo.text,
     },
     statusLabel: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'Nunito_600SemiBold',
+        color: Colors.neo.text,
         textAlign: 'right',
     },
 });
