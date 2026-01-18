@@ -5,12 +5,13 @@ import { Server } from 'socket.io';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
+import sharp from 'sharp';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const heicConvert = require('heic-convert');
 import { setupSocketHandlers } from './socket.handlers.js';
-
-// ============================================================================
-// Express & Socket.io Setup
-// ============================================================================
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,23 +28,14 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// ============================================================================
-// Multer Configuration for Photo Uploads
-// ============================================================================
+// Ensure uploads directory exists
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads', { recursive: true });
+}
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const filename = `${uuidv4()}${ext}`;
-    cb(null, filename);
-  },
-});
-
+// Use memory storage - process buffer directly without intermediate disk write
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
@@ -57,10 +49,6 @@ const upload = multer({
   },
 });
 
-// ============================================================================
-// Routes
-// ============================================================================
-
 app.get('/', (_req: Request, res: Response) => {
   res.send('IRL Quests Backend - Ready!');
 });
@@ -70,20 +58,43 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-// Photo upload endpoint
-app.post('/upload', upload.single('photo'), (req: Request, res: Response) => {
-  if (!req.file) {
-    res.status(400).json({ error: 'No file uploaded' });
-    return;
+// Photo upload endpoint - auto-converts all images to JPG
+app.post('/upload', upload.single('photo'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const originalExt = path.extname(req.file.originalname).toLowerCase();
+    const jpgFilename = `${uuidv4()}.jpg`;
+    const jpgPath = path.join('uploads', jpgFilename);
+    const isHeic = originalExt === '.heic' || originalExt === '.heif';
+
+    if (isHeic) {
+      // HEIC: convert directly to JPEG and save (no Sharp needed)
+      const jpgBuffer = await heicConvert({
+        buffer: req.file.buffer,
+        format: 'JPEG',
+        quality: 0.6,
+      });
+      fs.writeFileSync(jpgPath, Buffer.from(jpgBuffer));
+    } else {
+      // Other formats: compress with Sharp
+      await sharp(req.file.buffer)
+        .jpeg({ quality: 60 })
+        .toFile(jpgPath);
+    }
+
+    res.json({
+      success: true,
+      photoId: jpgFilename,
+      path: jpgPath,
+    });
+  } catch (error) {
+    console.error('Error processing image:', error);
+    res.status(500).json({ error: 'Failed to process image' });
   }
-
-  const photoPath = path.join('uploads', req.file.filename);
-
-  res.json({
-    success: true,
-    photoId: req.file.filename,
-    path: photoPath,
-  });
 });
 
 // Error handler for multer
@@ -95,15 +106,7 @@ app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) 
   }
 });
 
-// ============================================================================
-// Socket.io Handlers
-// ============================================================================
-
 setupSocketHandlers(io);
-
-// ============================================================================
-// Start Server
-// ============================================================================
 
 httpServer.listen(port, () => {
   console.log(`🎮 IRL Quests server running on http://localhost:${port}/`);

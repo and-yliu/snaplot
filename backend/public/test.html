@@ -1,31 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IRL Quests - Socket Test</title>
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
-    body { max-width: 600px; margin: 2rem auto; padding: 1rem; background: #1a1a2e; color: #eee; }
-    h1 { color: #00d9ff; }
-    .section { background: #16213e; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
-    button { background: #00d9ff; color: #000; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin: 0.25rem; }
-    button:hover { background: #00b8d9; }
-    input { padding: 0.5rem; border-radius: 4px; border: 1px solid #333; background: #0f0f23; color: #fff; width: 150px; }
-    #log { background: #0f0f23; padding: 1rem; border-radius: 4px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; }
-    .log-entry { margin: 0.25rem 0; padding: 0.25rem; border-left: 3px solid #333; }
-    .log-entry.send { border-color: #00d9ff; }
-    .log-entry.receive { border-color: #00ff88; }
-    .log-entry.error { border-color: #ff4444; }
-    .status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; }
-    .status.connected { background: #00ff88; }
-    .status.disconnected { background: #ff4444; }
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, sans-serif;
+    }
+
+    body {
+      max-width: 600px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #1a1a2e;
+      color: #eee;
+    }
+
+    h1 {
+      color: #00d9ff;
+    }
+
+    .section {
+      background: #16213e;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
+    button {
+      background: #00d9ff;
+      color: #000;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0.25rem;
+    }
+
+    button:hover {
+      background: #00b8d9;
+    }
+
+    input {
+      padding: 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #0f0f23;
+      color: #fff;
+      width: 150px;
+    }
+
+    #log {
+      background: #0f0f23;
+      padding: 1rem;
+      border-radius: 4px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      margin: 0.25rem 0;
+      padding: 0.25rem;
+      border-left: 3px solid #333;
+    }
+
+    .log-entry.send {
+      border-color: #00d9ff;
+    }
+
+    .log-entry.receive {
+      border-color: #00ff88;
+    }
+
+    .log-entry.error {
+      border-color: #ff4444;
+    }
+
+    .status {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+
+    .status.connected {
+      background: #00ff88;
+    }
+
+    .status.disconnected {
+      background: #ff4444;
+    }
   </style>
 </head>
+
 <body>
   <h1>🎮 IRL Quests - Socket Test</h1>
-  
+
   <div class="section">
     <span class="status disconnected" id="statusDot"></span>
     <span id="statusText">Disconnected</span>
@@ -46,6 +123,14 @@
   <div class="section">
     <h3>Game Controls</h3>
     <button onclick="submitPhoto()">Submit Test Photo</button>
+  </div>
+
+  <div class="section">
+    <h3>📤 File Upload Test</h3>
+    <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp,image/heic">
+    <button onclick="uploadPhoto()">Upload Photo</button>
+    <div id="uploadResult" style="margin-top: 0.5rem; font-size: 12px;"></div>
+    <div id="uploadPreview" style="margin-top: 0.5rem;"></div>
   </div>
 
   <div class="section">
@@ -124,6 +209,49 @@
       log('game:submit { photoPath: "uploads/test.jpg" }', 'send');
     }
 
+    async function uploadPhoto() {
+      const fileInput = document.getElementById('photoInput');
+      const resultDiv = document.getElementById('uploadResult');
+      const previewDiv = document.getElementById('uploadPreview');
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        resultDiv.innerHTML = '<span style="color: #ff4444;">No file selected!</span>';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      resultDiv.innerHTML = '<span style="color: #00d9ff;">Uploading...</span>';
+      previewDiv.innerHTML = '';
+
+      try {
+        const response = await fetch('http://localhost:3000/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          resultDiv.innerHTML = '<span style="color: #00ff88;">✅ Upload successful!</span><br>' +
+            '<pre style="color: #aaa; margin: 0.5rem 0;">' + JSON.stringify(data, null, 2) + '</pre>';
+
+          // Show preview of uploaded image
+          previewDiv.innerHTML = '<img src="http://localhost:3000/' + data.path + '" style="max-width: 200px; border-radius: 4px; margin-top: 0.5rem;">';
+
+          log('Upload success: ' + JSON.stringify(data), 'receive');
+        } else {
+          resultDiv.innerHTML = '<span style="color: #ff4444;">❌ Error: ' + data.error + '</span>';
+          log('Upload error: ' + data.error, 'error');
+        }
+      } catch (error) {
+        resultDiv.innerHTML = '<span style="color: #ff4444;">❌ Network error: ' + error.message + '</span>';
+        log('Upload network error: ' + error.message, 'error');
+      }
+    }
+
     function log(message, type = '') {
       const logEl = document.getElementById('log');
       const entry = document.createElement('div');
@@ -138,4 +266,5 @@
     }
   </script>
 </body>
+
 </html>
