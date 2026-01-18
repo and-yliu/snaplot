@@ -99,7 +99,7 @@ export type PendingNavigation =
     | null;
 
 // Server URL - update this to your backend URL
-export const SERVER_URL = 'http://10.19.130.64:3000';
+export const SERVER_URL = 'http://localhost:3000';
 
 // ============================================================================
 // Global State Store (persists across component instances)

@@ -140,6 +140,13 @@ export default function RoundResultScreen() {
     router.replace('/game');
   }, [pendingNavigation, clearPendingNavigation, router]);
 
+  // Navigate to story-result when game is complete
+  useEffect(() => {
+    if (pendingNavigation?.type !== 'story-result') return;
+    clearPendingNavigation();
+    router.replace('/story-result');
+  }, [pendingNavigation, clearPendingNavigation, router]);
+
   const handleReadyNextRound = () => {
     readyForNextRound();
     setHasConfirmed(true);

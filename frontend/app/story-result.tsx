@@ -48,15 +48,17 @@ export default function StoryResultScreen() {
   // Derive protagonist from mostClueless (troll) name
   const protagonist = awards?.mostClueless?.name ?? 'The Adventurer';
 
-  // Map segments to story chunks with images from results
+  // Map segments to story chunks with images and object names from results
   const storyChunks = useMemo(() => {
     if (!gameComplete) return [];
-    return gameComplete.segments.map((seg, idx) => {
+    return gameComplete.segments.map((seg) => {
       const result = gameComplete.results[seg.index];
       return {
         id: seg.index,
         text: seg.lead,
         image: result?.photoPath ? `${SERVER_URL}/${result.photoPath.replace(/^\/+/, '')}` : null,
+        objectName: result?.objectName ?? null,
+        winnerName: result?.winnerName ?? null,
       };
     });
   }, [gameComplete]);
@@ -145,8 +147,16 @@ export default function StoryResultScreen() {
   );
 }
 
+interface ChunkData {
+  id: number;
+  text: string;
+  image: string | null;
+  objectName: string | null;
+  winnerName: string | null;
+}
+
 // Sub-component for each Story Pair
-function StoryChunk({ data, isActive, onComplete, playPop }: { data: any, isActive: boolean, onComplete?: () => void, playPop: () => void }) {
+function StoryChunk({ data, isActive, onComplete, playPop }: { data: ChunkData, isActive: boolean, onComplete?: () => void, playPop: () => void }) {
   const [displayedText, setDisplayedText] = useState('');
   const [showImage, setShowImage] = useState(false);
   const [isTypingDone, setIsTypingDone] = useState(false);
@@ -206,16 +216,37 @@ function StoryChunk({ data, isActive, onComplete, playPop }: { data: any, isActi
         </Text>
       </View>
 
-      {/* Image Container with fixed height using wrapper View to prevent layout jumps or handle layout smoothly */}
+      {/* Image Container */}
       <View className="min-h-[200px] w-full items-center">
-        {showImage && (
-          <NeoView className="w-full aspect-video">
-            <Image
-              source={{ uri: data.image }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
-          </NeoView>
+        {showImage && data.image && (
+          <View className="w-full">
+            {/* Object Name Badge */}
+            {data.objectName && (
+              <View className="bg-neo-shadow px-4 py-2 rounded-t-xl border-2 border-b-0 border-neo-border">
+                <Text
+                  className="text-lg text-neo-card text-center"
+                  style={{ fontFamily: 'Nunito_700Bold' }}
+                >
+                  📸 {data.objectName}
+                </Text>
+                {data.winnerName && (
+                  <Text
+                    className="text-sm text-neo-card text-center opacity-80"
+                    style={{ fontFamily: 'Nunito_400Regular' }}
+                  >
+                    by {data.winnerName}
+                  </Text>
+                )}
+              </View>
+            )}
+            <NeoView className="w-full aspect-video" style={data.objectName ? { borderTopLeftRadius: 0, borderTopRightRadius: 0 } : undefined}>
+              <Image
+                source={{ uri: data.image }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            </NeoView>
+          </View>
         )}
       </View>
     </View>
