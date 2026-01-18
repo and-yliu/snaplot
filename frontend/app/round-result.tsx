@@ -129,7 +129,7 @@ export default function RoundResultScreen() {
         if (!hasRun.current) return; // Guard against unmount
         setStep(1); // Show Criteria Text
 
-        // GAP 1: 1s sleep after criteria content shown
+        // GAP: 1s sleep after criteria content shown
         safeSetTimeout(() => {
           if (!hasRun.current) return;
           // Step 2: Winner Reveal
@@ -142,12 +142,12 @@ export default function RoundResultScreen() {
           // };
           // playSecond();
 
-          // Wait 2s
+          // Wait 2s for drum roll, then show winner
           safeSetTimeout(() => {
             if (!hasRun.current) return;
             setStep(2); // Show Winner Info
 
-            // GAP 2: 1s pause before Judge's Comment
+            // GAP: 1s pause before Judge's Comment
             safeSetTimeout(() => {
               if (!hasRun.current) return;
               setStep(3);
@@ -158,10 +158,10 @@ export default function RoundResultScreen() {
               }).start(() => {
                 if (hasRun.current) setStep(4);
               });
-            }, 1000); // Increased delay to ensure 1s+ gap
+            }, 1000);
           }, 2000);
-        }, 1000); // 1s gap between criteria and next drum roll
-      }, 2000);
+        }, 1000); // 1s gap before drum roll starts
+      }, 1000); // Initial delay before showing criteria
     };
 
     runSequence();
@@ -180,7 +180,7 @@ export default function RoundResultScreen() {
       //   }
       // }
     };
-  }, [opacityAnim, resultData, isMockMode, roundResult]); // Depend on player availability
+  }, [resultData, isMockMode, roundResult]); // Depend on player availability
 
   // ... rest of the component
 

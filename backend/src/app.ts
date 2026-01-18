@@ -36,6 +36,7 @@ if (!fs.existsSync('uploads')) {
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.resolve('uploads')));
+app.use('/public', express.static(path.resolve('public')));
 
 // Use memory storage - process buffer directly without intermediate disk write
 const upload = multer({
@@ -76,16 +77,21 @@ app.post('/upload', upload.single('photo'), async (req: Request, res: Response) 
     const isHeic = originalExt === '.heic' || originalExt === '.heif';
 
     if (isHeic) {
-      // HEIC: convert directly to JPEG and save (no Sharp needed)
+      // HEIC: convert to JPEG buffer first, then process through Sharp for rotation
       const jpgBuffer = await heicConvert({
         buffer: req.file.buffer,
         format: 'JPEG',
-        quality: 0.6,
+        quality: 0.8, // Higher quality since Sharp will compress again
       });
-      fs.writeFileSync(jpgPath, Buffer.from(jpgBuffer));
+      // Process through Sharp to auto-rotate based on EXIF and compress
+      await sharp(Buffer.from(jpgBuffer))
+        .rotate() // Auto-rotate based on EXIF orientation
+        .jpeg({ quality: 60 })
+        .toFile(jpgPath);
     } else {
-      // Other formats: compress with Sharp
+      // Other formats: auto-rotate based on EXIF and compress with Sharp
       await sharp(req.file.buffer)
+        .rotate() // Auto-rotate based on EXIF orientation
         .jpeg({ quality: 60 })
         .toFile(jpgPath);
     }
