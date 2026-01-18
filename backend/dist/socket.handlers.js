@@ -16,6 +16,7 @@
  * - lobby:settings { rounds?, roundTimeSeconds? }  Update game settings (host only)
  * - lobby:start    (no payload)               Start the game (host only)
  * - game:submit    { photoPath }              Submit photo for current round
+ * - game:next-round-ready (no payload)        Confirm ready to continue after results
  *
  * SERVER -> CLIENT (on):
  * - lobby:state        Full lobby state with players and settings
@@ -29,6 +30,7 @@
  * - game:player-submitted  Player submitted their photo
  * - game:judging         AI is judging submissions
  * - game:round-result    Round winner with photo and one-liner
+ * - game:next-round-status  Ready count for next round
  * - game:complete        Story complete with all results
  * - game:awards          Final awards (Judge's Favorite, Most Clueless)
  * - game:error           Game error message
@@ -78,12 +80,14 @@ export function setupSocketHandlers(io) {
             }
         });
         /**
-         * lobby:join - Join an existing lobby
+         * lobby:join - Join an existing lobby (or rejoin if disconnected)
          * @param {string} code - 4-character lobby code
          * @param {string} name - Player's display name
          * @emits lobby:state - Full lobby state to all players in lobby
-         * @emits lobby:player-joined - Notification to other players
-         * @emits lobby:error - If lobby not found, full, or game in progress
+         * @emits lobby:player-joined - Notification to other players (new join)
+         * @emits lobby:player-rejoined - Notification to other players (rejoin)
+         * @emits game:round - Current round info if rejoining game in progress
+         * @emits lobby:error - If lobby not found, full, or game in progress (for new players)
          */
         socket.on('lobby:join', (payload) => {
             try {
@@ -96,16 +100,44 @@ export function setupSocketHandlers(io) {
                     socket.emit('lobby:error', { message: 'Lobby code is required' });
                     return;
                 }
-                const lobby = lobbyManager.joinLobby(code.trim().toUpperCase(), socket.id, name.trim());
+                const trimmedCode = code.trim().toUpperCase();
+                const trimmedName = name.trim();
+                // First, try to rejoin as a disconnected player
+                const rejoinResult = lobbyManager.rejoinLobby(trimmedCode, socket.id, trimmedName);
+                if (rejoinResult) {
+                    // Rejoining as disconnected player
+                    const { lobby, oldSocketId } = rejoinResult;
+                    socket.join(lobby.code);
+                    // Update game state if game in progress
+                    const game = gameManager.getGame(lobby.code);
+                    if (game) {
+                        gameManager.handleRejoin(lobby.code, oldSocketId, socket.id);
+                        // Send current game state
+                        const roundPayload = gameManager.getRoundPayload(game);
+                        socket.emit('game:round', roundPayload);
+                    }
+                    // Send lobby state
+                    const state = lobbyManager.toLobbyState(lobby);
+                    socket.emit('lobby:state', state);
+                    // Notify others about rejoin
+                    socket.to(lobby.code).emit('lobby:player-rejoined', {
+                        playerId: socket.id,
+                        playerName: trimmedName,
+                    });
+                    console.log(`${trimmedName} rejoined lobby ${lobby.code}`);
+                    return;
+                }
+                // Not a rejoin - try normal join
+                const lobby = lobbyManager.joinLobby(trimmedCode, socket.id, trimmedName);
                 socket.join(lobby.code);
                 const state = lobbyManager.toLobbyState(lobby);
                 // Notify all players in lobby
                 io.to(lobby.code).emit('lobby:state', state);
                 // Notify others about new player
                 socket.to(lobby.code).emit('lobby:player-joined', {
-                    player: { id: socket.id, name: name.trim() },
+                    player: { id: socket.id, name: trimmedName },
                 });
-                console.log(`${name} joined lobby ${lobby.code}`);
+                console.log(`${trimmedName} joined lobby ${lobby.code}`);
             }
             catch (err) {
                 socket.emit('lobby:error', { message: err.message });
@@ -238,26 +270,81 @@ export function setupSocketHandlers(io) {
                 socket.emit('game:error', { message: err.message });
             }
         });
+        socket.on('game:reaction', ({ icon }) => {
+            const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
+            if (!lobbyCode) {
+                socket.emit('game:error', { message: 'Not in a game' });
+                return;
+            }
+            socket.to(lobbyCode).emit('game:reaction', {
+                playerId: socket.id,
+                icon
+            });
+        });
+        /**
+         * game:next-round-ready - Player confirms ready to proceed after results
+         * Once all players confirm, server emits next `game:round` (or `game:complete` if final).
+         * @emits game:next-round-status - Ready count update
+         * @emits game:round - Next round info (when all ready)
+         * @emits game:complete - Completed story (if final round and all ready)
+         * @emits game:awards - Final awards (if final round and all ready)
+         */
+        socket.on('game:next-round-ready', async () => {
+            try {
+                const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
+                if (!lobbyCode) {
+                    socket.emit('game:error', { message: 'Not in a game' });
+                    return;
+                }
+                const game = gameManager.getGame(lobbyCode);
+                if (!game) {
+                    socket.emit('game:error', { message: 'Game not found' });
+                    return;
+                }
+                if (game.status !== 'results') {
+                    socket.emit('game:error', { message: 'Not ready to continue yet' });
+                    return;
+                }
+                gameManager.setPlayerReadyForNextRound(lobbyCode, socket.id);
+                await maybeAdvanceAfterResults(io, lobbyCode);
+            }
+            catch (err) {
+                socket.emit('game:error', { message: err.message });
+            }
+        });
         // ========================================================================
         // Disconnect
         // ========================================================================
         /**
          * disconnect - Handle player disconnection
-         * Auto-marks player as submitted (so game can continue)
-         * Removes player from lobby with host migration if needed
+         * During game: marks as disconnected (can rejoin)
+         * In lobby: fully removes player
          */
         socket.on('disconnect', () => {
             console.log(`Player disconnected: ${socket.id}`);
-            // Handle game disconnect
             const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
-            if (lobbyCode) {
-                const game = gameManager.getGame(lobbyCode);
-                if (game) {
-                    gameManager.handleDisconnect(lobbyCode, socket.id);
+            if (!lobbyCode)
+                return;
+            const lobby = lobbyManager.getLobby(lobbyCode);
+            const game = gameManager.getGame(lobbyCode);
+            if (game && lobby?.status === 'in-game') {
+                // Game in progress - mark as disconnected, allow rejoin
+                gameManager.handleDisconnect(lobbyCode, socket.id);
+                const result = lobbyManager.markDisconnected(socket.id);
+                if (result?.lobby) {
+                    const state = lobbyManager.toLobbyState(result.lobby);
+                    io.to(lobbyCode).emit('lobby:state', state);
+                    io.to(lobbyCode).emit('lobby:player-disconnected', {
+                        playerId: socket.id,
+                        playerName: result.playerName,
+                    });
+                    console.log(`${result.playerName} disconnected from game (can rejoin)`);
                 }
             }
-            // Handle lobby disconnect
-            handlePlayerLeave(io, socket);
+            else {
+                // Not in game - fully remove
+                handlePlayerLeave(io, socket);
+            }
         });
     });
 }
@@ -274,6 +361,14 @@ function handlePlayerLeave(io, socket) {
         return;
     const { lobby, code } = result;
     socket.leave(code);
+    // Keep game state in sync if someone leaves mid-game/results
+    const game = gameManager.getGame(code);
+    if (game) {
+        gameManager.removePlayerFromGame(code, socket.id);
+        if (game.status === 'results') {
+            void maybeAdvanceAfterResults(io, code);
+        }
+    }
     if (lobby) {
         const state = lobbyManager.toLobbyState(lobby);
         io.to(code).emit('lobby:state', state);
@@ -315,31 +410,35 @@ async function handleRoundEnd(io, lobbyCode) {
             oneliner: 'No submissions this round!',
         });
     }
-    // Wait for players to see results, then advance
-    setTimeout(async () => {
-        const currentGame = gameManager.getGame(lobbyCode);
-        if (!currentGame)
-            return;
-        // Advance to next round or complete game
-        const nextGame = gameManager.nextRound(lobbyCode);
-        if (!nextGame)
-            return;
-        if (nextGame.status === 'complete') {
-            // Game over - get awards first to find the "Most Clueless" player
-            const awardsPayload = gameManager.getFinalAwardsPayload(nextGame);
-            const trollName = awardsPayload.mostClueless[0]?.name ?? 'The Adventurer';
-            // Generate recap with troll name and send complete story
-            const completePayload = await gameManager.getGameCompletePayload(nextGame, trollName);
-            io.to(lobbyCode).emit('game:complete', completePayload);
-            io.to(lobbyCode).emit('game:awards', awardsPayload);
-            gameManager.endGame(lobbyCode);
-            console.log(`Game completed in lobby ${lobbyCode}`);
-        }
-        else {
-            // Send next round info
-            const roundPayload = gameManager.getRoundPayload(nextGame);
-            io.to(lobbyCode).emit('game:round', roundPayload);
-        }
-    }, 8000); // 8 seconds to view results
+    // Reset readiness and notify clients we are waiting for confirmations
+    gameManager.resetNextRoundReady(lobbyCode);
+    io.to(lobbyCode).emit('game:next-round-status', { readyCount: 0, totalPlayers: game.players.size });
+}
+async function maybeAdvanceAfterResults(io, lobbyCode) {
+    const game = gameManager.getGame(lobbyCode);
+    if (!game)
+        return;
+    if (game.status !== 'results')
+        return;
+    const { readyCount, totalPlayers, allReady } = gameManager.getNextRoundReadyStatus(lobbyCode);
+    io.to(lobbyCode).emit('game:next-round-status', { readyCount, totalPlayers });
+    if (!allReady)
+        return;
+    const nextGame = gameManager.nextRound(lobbyCode);
+    if (!nextGame)
+        return;
+    if (nextGame.status === 'complete') {
+        const awardsPayload = gameManager.getFinalAwardsPayload(nextGame);
+        const trollName = awardsPayload.mostClueless[0]?.name ?? 'The Adventurer';
+        const completePayload = await gameManager.getGameCompletePayload(nextGame, trollName);
+        io.to(lobbyCode).emit('game:complete', completePayload);
+        io.to(lobbyCode).emit('game:awards', awardsPayload);
+        gameManager.endGame(lobbyCode);
+        console.log(`Game completed in lobby ${lobbyCode}`);
+    }
+    else {
+        const roundPayload = gameManager.getRoundPayload(nextGame);
+        io.to(lobbyCode).emit('game:round', roundPayload);
+    }
 }
 //# sourceMappingURL=socket.handlers.js.map

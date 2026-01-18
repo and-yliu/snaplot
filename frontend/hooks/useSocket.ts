@@ -42,6 +42,31 @@ export interface RoundPayload {
     theme: string;
     criteria: string;
     totalRounds: number;
+    deadline?: number;
+    remainingSeconds?: number;
+}
+
+export interface TickPayload {
+    remainingSeconds: number;
+}
+
+export interface PlayerSubmittedPayload {
+    playerId: string;
+    playerName: string;
+}
+
+export interface RoundResultPayload {
+    round: number;
+    winnerId: string;
+    winnerName: string;
+    photoPath: string;
+    objectName: string;
+    oneliner: string;
+}
+
+export interface NextRoundStatusPayload {
+    readyCount: number;
+    totalPlayers: number;
 }
 
 // Navigation types for pending navigation
@@ -49,10 +74,11 @@ export type PendingNavigation =
     | { type: 'host-waiting-room'; roomPin: string }
     | { type: 'player-waiting-room'; roomPin: string }
     | { type: 'game' }
+    | { type: 'round-result' }
     | null;
 
 // Server URL - update this to your backend URL
-const SERVER_URL = 'http://10.19.130.64:3000';
+export const SERVER_URL = 'http://10.19.130.64:3000';
 
 // ============================================================================
 // Global State Store (persists across component instances)
@@ -64,6 +90,12 @@ interface SocketState {
     error: string | null;
     gameStart: GameStartPayload | null;
     currentRound: RoundPayload | null;
+    tick: TickPayload | null;
+    submittedPlayerIds: string[];
+    isJudging: boolean;
+    roundResult: RoundResultPayload | null;
+    roundResultContext: RoundPayload | null;
+    nextRoundStatus: NextRoundStatusPayload | null;
     pendingNavigation: PendingNavigation;
     remoteReactions: Array<{ id: string; icon: string; playerId: string }>;
 }
@@ -74,6 +106,12 @@ let globalState: SocketState = {
     error: null,
     gameStart: null,
     currentRound: null,
+    tick: null,
+    submittedPlayerIds: [],
+    isJudging: false,
+    roundResult: null,
+    roundResultContext: null,
+    nextRoundStatus: null,
     pendingNavigation: null,
     remoteReactions: [],
 };
@@ -102,11 +140,27 @@ function getSnapshot() {
 // Singleton Socket Instance
 // ============================================================================
 
-let socketInstance: Socket | null = null;
-let isInitialized = false;
+type GlobalSingleton = {
+    socket: Socket | null;
+    isInitialized: boolean;
+};
+
+const globalSingleton = (() => {
+    const g = globalThis as unknown as { __irlQuestsSocketSingleton?: GlobalSingleton };
+    if (!g.__irlQuestsSocketSingleton) {
+        g.__irlQuestsSocketSingleton = { socket: null, isInitialized: false };
+    }
+    return g.__irlQuestsSocketSingleton;
+})();
+
+let socketInstance: Socket | null = globalSingleton.socket;
+let isInitialized = globalSingleton.isInitialized;
 
 // Track pending action to determine navigation type
 let pendingAction: 'create' | 'join' | null = null;
+
+let lastRoundKey: string | null = null;
+let lastRoundResultKey: string | null = null;
 
 function getSocket(): Socket {
     if (!socketInstance) {
@@ -114,10 +168,29 @@ function getSocket(): Socket {
             transports: ['websocket'],
             autoConnect: true,
         });
+        globalSingleton.socket = socketInstance;
 
         // Set up event listeners once
         if (!isInitialized) {
             isInitialized = true;
+            globalSingleton.isInitialized = true;
+
+            // Defensive: ensure we never accumulate duplicate listeners (e.g. Fast Refresh)
+            socketInstance.off('connect');
+            socketInstance.off('disconnect');
+            socketInstance.off('lobby:state');
+            socketInstance.off('lobby:error');
+            socketInstance.off('lobby:player-joined');
+            socketInstance.off('lobby:player-left');
+            socketInstance.off('lobby:host-changed');
+            socketInstance.off('game:start');
+            socketInstance.off('game:round');
+            socketInstance.off('game:tick');
+            socketInstance.off('game:player-submitted');
+            socketInstance.off('game:judging');
+            socketInstance.off('game:round-result');
+            socketInstance.off('game:next-round-status');
+            socketInstance.off('game:error');
 
             socketInstance.on('connect', () => {
                 console.log('Socket connected:', socketInstance?.id);
@@ -182,6 +255,11 @@ function getSocket(): Socket {
                 console.log('Game started:', payload);
                 setGlobalState({
                     gameStart: payload,
+                    submittedPlayerIds: [],
+                    isJudging: false,
+                    roundResult: null,
+                    roundResultContext: null,
+                    nextRoundStatus: null,
                     pendingNavigation: { type: 'game' }
                 });
             });
@@ -199,8 +277,55 @@ function getSocket(): Socket {
             });
 
             socketInstance.on('game:round', (payload: RoundPayload) => {
+                const key = `${payload.round}|${payload.deadline ?? ''}|${payload.theme}|${payload.criteria}`;
+                if (lastRoundKey === key) return;
+                lastRoundKey = key;
+
                 console.log('Round:', payload);
-                setGlobalState({ currentRound: payload });
+                setGlobalState({
+                    currentRound: payload,
+                    tick: payload.remainingSeconds !== undefined ? { remainingSeconds: payload.remainingSeconds } : null,
+                    submittedPlayerIds: [],
+                    isJudging: false,
+                    roundResult: null,
+                    roundResultContext: null,
+                    nextRoundStatus: null,
+                    pendingNavigation: { type: 'game' },
+                });
+            });
+
+            socketInstance.on('game:tick', (payload: TickPayload) => {
+                setGlobalState({ tick: payload });
+            });
+
+            socketInstance.on('game:player-submitted', (payload: PlayerSubmittedPayload) => {
+                setGlobalState({
+                    submittedPlayerIds: globalState.submittedPlayerIds.includes(payload.playerId)
+                        ? globalState.submittedPlayerIds
+                        : [...globalState.submittedPlayerIds, payload.playerId],
+                });
+            });
+
+            socketInstance.on('game:judging', () => {
+                setGlobalState({ isJudging: true });
+            });
+
+            socketInstance.on('game:round-result', (payload: RoundResultPayload) => {
+                const key = `${payload.round}|${payload.winnerId}|${payload.photoPath}|${payload.objectName}|${payload.oneliner}`;
+                if (lastRoundResultKey === key) return;
+                lastRoundResultKey = key;
+
+                setGlobalState({
+                    isJudging: false,
+                    roundResult: payload,
+                    roundResultContext: globalState.currentRound,
+                    nextRoundStatus: null,
+                    pendingNavigation: { type: 'round-result' },
+                });
+            });
+
+            socketInstance.on('game:next-round-status', (payload: NextRoundStatusPayload) => {
+                setGlobalState({ nextRoundStatus: payload });
             });
 
             socketInstance.on('game:error', ({ message }: { message: string }) => {
@@ -252,8 +377,15 @@ export function useSocket() {
             lobbyState: null,
             gameStart: null,
             currentRound: null,
+            tick: null,
+            submittedPlayerIds: [],
+            isJudging: false,
+            roundResult: null,
+            roundResultContext: null,
+            nextRoundStatus: null,
             error: null,
             pendingNavigation: null,
+            remoteReactions: [],
         });
     }, []);
 
@@ -275,6 +407,44 @@ export function useSocket() {
     // Submit a photo for the current round
     const submitPhoto = useCallback((photoPath: string) => {
         socket.emit('game:submit', { photoPath });
+    }, []);
+
+    const uploadAndSubmitPhoto = useCallback(async (photoUri: string): Promise<boolean> => {
+        try {
+            const filename = photoUri.split('/').pop() || 'photo.jpg';
+            const ext = filename.split('.').pop()?.toLowerCase();
+            const type =
+                ext === 'png' ? 'image/png' :
+                    ext === 'webp' ? 'image/webp' :
+                        ext === 'heic' || ext === 'heif' ? 'image/heic' :
+                            'image/jpeg';
+
+            const formData = new FormData();
+            formData.append('photo', { uri: photoUri, name: filename, type } as any);
+
+            const res = await fetch(`${SERVER_URL}/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok || !data?.photoPath) {
+                const message = data?.error ?? 'Failed to upload photo';
+                setGlobalState({ error: message });
+                return false;
+            }
+
+            submitPhoto(data.photoPath);
+            return true;
+        } catch (err) {
+            setGlobalState({ error: (err as Error).message });
+            return false;
+        }
+    }, [submitPhoto]);
+
+    const readyForNextRound = useCallback(() => {
+        socket.emit('game:next-round-ready');
     }, []);
 
     // Clear pending navigation after navigation has occurred
@@ -301,6 +471,12 @@ export function useSocket() {
         error: state.error,
         gameStart: state.gameStart,
         currentRound: state.currentRound,
+        tick: state.tick,
+        submittedPlayerIds: state.submittedPlayerIds,
+        isJudging: state.isJudging,
+        roundResult: state.roundResult,
+        roundResultContext: state.roundResultContext,
+        nextRoundStatus: state.nextRoundStatus,
         pendingNavigation: state.pendingNavigation,
         remoteReactions: state.remoteReactions,
         createLobby,
@@ -310,6 +486,8 @@ export function useSocket() {
         updateSettings,
         startGame,
         submitPhoto,
+        uploadAndSubmitPhoto,
+        readyForNextRound,
         clearPendingNavigation,
         sendReaction,
         consumeReaction,

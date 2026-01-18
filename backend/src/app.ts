@@ -34,6 +34,9 @@ if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads', { recursive: true });
 }
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.resolve('uploads')));
+
 // Use memory storage - process buffer directly without intermediate disk write
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -90,7 +93,8 @@ app.post('/upload', upload.single('photo'), async (req: Request, res: Response) 
     res.json({
       success: true,
       photoId: jpgFilename,
-      path: jpgPath,
+      photoPath: jpgPath.replaceAll('\\', '/'),
+      photoUrl: `/uploads/${jpgFilename}`,
     });
   } catch (error) {
     console.error('Error processing image:', error);

@@ -54,7 +54,7 @@ export function NeoButton({
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
-      className={`relative h-[50px] ${className ?? ''}`}
+      className={`relative h-[50px] ${className}`}
       style={style}
       disabled={disabled}
     >

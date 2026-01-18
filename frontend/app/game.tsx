@@ -1,31 +1,76 @@
-import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { Alert, StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { useSocket } from '@/hooks/useSocket';
 
 export default function GameScreen() {
     const router = useRouter();
     const [permission, requestPermission] = useCameraPermissions();
     const cameraRef = useRef<CameraView>(null);
     const [photo, setPhoto] = useState<string | null>(null);
-    const [timeLeft, setTimeLeft] = useState(59);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submittedCount, setSubmittedCount] = useState(3); // Mock data
+    const [isUploading, setIsUploading] = useState(false);
+    const [hasSubmitted, setHasSubmitted] = useState(false);
+
+    const {
+        lobbyState,
+        gameStart,
+        currentRound,
+        tick,
+        submittedPlayerIds,
+        isJudging,
+        nextRoundStatus,
+        pendingNavigation,
+        clearPendingNavigation,
+        error,
+        uploadAndSubmitPhoto,
+    } = useSocket();
 
     useEffect(() => {
-        if (timeLeft > 0) {
-            const timer = setInterval(() => {
-                setTimeLeft((prev) => prev - 1);
-            }, 1000);
-            return () => clearInterval(timer);
+        if (permission && !permission.granted) {
+            requestPermission();
         }
-    }, [timeLeft]);
+    }, [permission, requestPermission]);
+
+    useEffect(() => {
+        if (pendingNavigation?.type === 'round-result') {
+            clearPendingNavigation();
+            router.push('/round-result');
+        }
+    }, [pendingNavigation, clearPendingNavigation, router]);
+
+    useEffect(() => {
+        if (pendingNavigation?.type === 'game') {
+            clearPendingNavigation();
+        }
+    }, [pendingNavigation, clearPendingNavigation]);
+
+    useEffect(() => {
+        if (error) {
+            Alert.alert('Error', error);
+        }
+    }, [error]);
+
+    useEffect(() => {
+        setPhoto(null);
+        setIsUploading(false);
+        setHasSubmitted(false);
+    }, [currentRound?.round]);
+
+    const totalSeconds = lobbyState?.settings?.roundTimeSeconds ?? 60;
+    const timeLeft = tick?.remainingSeconds ?? totalSeconds;
+
+    const timeProgressPct = useMemo(() => {
+        if (!totalSeconds) return 0;
+        return Math.max(0, Math.min(100, (timeLeft / totalSeconds) * 100));
+    }, [timeLeft, totalSeconds]);
+
+    const promptText = currentRound?.theme ?? gameStart?.blanks?.[0]?.theme ?? '...';
+    const criteriaText = currentRound?.criteria ?? gameStart?.blanks?.[0]?.criteria ?? '...';
 
     if (!permission) {
         // Camera permissions are still loading.
@@ -53,12 +98,20 @@ export default function GameScreen() {
     };
 
     const handleSubmit = () => {
-        setIsSubmitting(true);
-        console.log('Submitted photo:', photo);
-        // Navigate immediately
-        router.push('/round-result' as any);
-        setIsSubmitting(false);
+        if (!photo || isUploading || hasSubmitted) return;
+        setHasSubmitted(true);
+        setIsUploading(true);
+        uploadAndSubmitPhoto(photo)
+            .then((ok) => {
+                if (!ok) {
+                    setHasSubmitted(false);
+                }
+            })
+            .finally(() => setIsUploading(false));
     };
+
+    const totalPlayers = lobbyState?.players?.length ?? nextRoundStatus?.totalPlayers ?? 0;
+    const submittedCount = submittedPlayerIds.length;
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -74,12 +127,13 @@ export default function GameScreen() {
 
 
                 <Text style={styles.promptText}>
-                    Something you would use when in a fight with crocodiles
+                    {promptText}
                 </Text>
 
                 <Text style={styles.criteriaText}>
-                    Criteria: <Text style={styles.criteriaHighlight}>The Weakest</Text>
+                    Criteria: <Text style={styles.criteriaHighlight}>{criteriaText}</Text>
                 </Text>
+                {isJudging ? <Text style={styles.judgingText}>Judging...</Text> : null}
 
                 {/* Timer Bar */}
                 <View style={styles.timerContainer}>
@@ -88,7 +142,7 @@ export default function GameScreen() {
                         <View
                             style={[
                                 styles.progressBarFill,
-                                { width: `${(timeLeft / 59) * 100}%` }
+                                { width: `${timeProgressPct}%` }
                             ]}
                         />
                     </View>
@@ -99,12 +153,13 @@ export default function GameScreen() {
                 {photo ? (
                     <Image source={{ uri: photo }} style={styles.camera} resizeMode="cover" />
                 ) : (
-                    <CameraView
-                        style={styles.camera}
-                        facing="back"
-                        ref={cameraRef}
-                    >
-                        <View style={styles.cameraOverlay}>
+                    <>
+                        <CameraView
+                            style={StyleSheet.absoluteFill}
+                            facing="back"
+                            ref={cameraRef}
+                        />
+                        <View pointerEvents="box-none" style={styles.cameraOverlay}>
                             <TouchableOpacity
                                 style={styles.shutterButton}
                                 onPress={handleTakePhoto}
@@ -114,33 +169,37 @@ export default function GameScreen() {
                                 <Ionicons name="camera" size={24} color="#333" />
                             </TouchableOpacity>
                         </View>
-                    </CameraView>
+                    </>
                 )}
             </View>
 
             <View style={styles.footer}>
                 {photo ? (
                     <View style={styles.reviewControls}>
-                        <NeoButton
-                            title="submit"
-                            onPress={handleSubmit}
-                            style={styles.submitButtonContainer}
-                            variant="primary"
-                        />
-                        <NeoButton
-                            title="retake"
-                            onPress={handleRetake}
-                            style={styles.retakeButtonContainer}
-                            variant="outline"
-                        />
+                        {!hasSubmitted ? (
+                            <>
+                                <NeoButton
+                                    title={isUploading ? 'uploading...' : 'submit'}
+                                    onPress={handleSubmit}
+                                    style={styles.submitButtonContainer}
+                                    variant="primary"
+                                />
+                                <NeoButton
+                                    title="retake"
+                                    onPress={handleRetake}
+                                    style={styles.retakeButtonContainer}
+                                    variant="outline"
+                                />
+                            </>
+                        ) : null}
                         <View style={styles.statusContainer}>
-                            <Text style={styles.statusCount}>{submittedCount}/7</Text>
+                            <Text style={styles.statusCount}>{submittedCount}/{totalPlayers || 0}</Text>
                             <Text style={styles.statusLabel}>have submitted</Text>
                         </View>
                     </View>
                 ) : (
                     <View style={styles.statusContainer}>
-                        <Text style={styles.statusCount}>{submittedCount}/7</Text>
+                        <Text style={styles.statusCount}>{submittedCount}/{totalPlayers || 0}</Text>
                         <Text style={styles.statusLabel}>have submitted</Text>
                     </View>
                 )}
@@ -194,6 +253,12 @@ const styles = StyleSheet.create({
     criteriaHighlight: {
         fontFamily: 'Nunito_700Bold',
     },
+    judgingText: {
+        fontSize: 16,
+        fontFamily: 'Nunito_700Bold',
+        color: Colors.neo.text,
+        marginBottom: 16,
+    },
     timerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -234,8 +299,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cameraOverlay: {
-        paddingBottom: 30,
-        width: '100%',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 30,
         alignItems: 'center',
     },
     shutterButton: {

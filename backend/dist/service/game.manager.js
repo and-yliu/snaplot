@@ -11,6 +11,7 @@ export class GameManager {
     games = new Map();
     roundTimers = new Map();
     tickIntervals = new Map();
+    nextRoundReady = new Map();
     // Callbacks for socket events
     onTick = undefined;
     onRoundEnd = undefined;
@@ -62,6 +63,67 @@ export class GameManager {
         return game.story.blanks[game.currentRound - 1];
     }
     /**
+     * End a round exactly once (deadline, all-submitted, disconnect).
+     * This prevents duplicate judging/results/next-round emits caused by race conditions.
+     */
+    tryEndRound(lobbyCode) {
+        const game = this.games.get(lobbyCode);
+        if (!game)
+            return false;
+        if (game.status !== 'round')
+            return false;
+        // Lock the round immediately to prevent double-trigger
+        game.status = 'judging';
+        this.clearTimers(lobbyCode);
+        if (this.onRoundEnd) {
+            this.onRoundEnd(lobbyCode);
+        }
+        return true;
+    }
+    /**
+     * Reset next-round readiness tracking for a lobby.
+     * Call after broadcasting a round result (or when starting a new round).
+     */
+    resetNextRoundReady(lobbyCode) {
+        this.nextRoundReady.set(lobbyCode, new Set());
+    }
+    /**
+     * Mark a player as ready to proceed from results -> next round/complete.
+     * Returns current counts for UI.
+     */
+    setPlayerReadyForNextRound(lobbyCode, playerId) {
+        const game = this.games.get(lobbyCode);
+        if (!game) {
+            return { readyCount: 0, totalPlayers: 0, allReady: false };
+        }
+        if (!this.nextRoundReady.has(lobbyCode)) {
+            this.nextRoundReady.set(lobbyCode, new Set());
+        }
+        const readySet = this.nextRoundReady.get(lobbyCode);
+        readySet.add(playerId);
+        const totalPlayers = game.players.size;
+        const readyCount = readySet.size;
+        const allReady = totalPlayers > 0 && readyCount >= totalPlayers;
+        return { readyCount, totalPlayers, allReady };
+    }
+    getNextRoundReadyStatus(lobbyCode) {
+        const game = this.games.get(lobbyCode);
+        if (!game)
+            return { readyCount: 0, totalPlayers: 0, allReady: false };
+        const readySet = this.nextRoundReady.get(lobbyCode) ?? new Set();
+        const totalPlayers = game.players.size;
+        const readyCount = readySet.size;
+        const allReady = totalPlayers > 0 && readyCount >= totalPlayers;
+        return { readyCount, totalPlayers, allReady };
+    }
+    removePlayerFromGame(lobbyCode, playerId) {
+        const game = this.games.get(lobbyCode);
+        if (!game)
+            return;
+        game.players.delete(playerId);
+        this.nextRoundReady.get(lobbyCode)?.delete(playerId);
+    }
+    /**
      * Start the round timer
      */
     startRoundTimer(lobbyCode) {
@@ -82,10 +144,7 @@ export class GameManager {
                 this.onTick(lobbyCode, remaining);
             }
             if (remaining <= 0) {
-                this.clearTimers(lobbyCode);
-                if (this.onRoundEnd) {
-                    this.onRoundEnd(lobbyCode);
-                }
+                this.tryEndRound(lobbyCode);
             }
         }, 1000);
         this.tickIntervals.set(lobbyCode, tickInterval);
@@ -125,10 +184,7 @@ export class GameManager {
         player.photoPath = photoPath;
         // Check if all players have submitted
         if (this.allPlayersSubmitted(lobbyCode)) {
-            this.clearTimers(lobbyCode);
-            if (this.onRoundEnd) {
-                this.onRoundEnd(lobbyCode);
-            }
+            this.tryEndRound(lobbyCode);
         }
         return true;
     }
@@ -234,6 +290,7 @@ export class GameManager {
         game.currentRound++;
         game.roundDeadline = Date.now() + (game.roundTimeSeconds * 1000);
         game.status = 'round';
+        this.resetNextRoundReady(lobbyCode);
         this.startRoundTimer(lobbyCode);
         return game;
     }
@@ -339,6 +396,7 @@ export class GameManager {
     endGame(lobbyCode) {
         this.clearTimers(lobbyCode);
         this.games.delete(lobbyCode);
+        this.nextRoundReady.delete(lobbyCode);
     }
     /**
      * Handle player disconnect
@@ -353,12 +411,25 @@ export class GameManager {
             player.hasSubmitted = true;
         }
         // Check if all remaining connected players have submitted
-        if (this.allPlayersSubmitted(lobbyCode) && game.status === 'round') {
-            this.clearTimers(lobbyCode);
-            if (this.onRoundEnd) {
-                this.onRoundEnd(lobbyCode);
-            }
+        if (this.allPlayersSubmitted(lobbyCode)) {
+            this.tryEndRound(lobbyCode);
         }
+    }
+    /**
+     * Handle player rejoin - update socket ID in game state
+     */
+    handleRejoin(lobbyCode, oldSocketId, newSocketId) {
+        const game = this.games.get(lobbyCode);
+        if (!game)
+            return false;
+        const player = game.players.get(oldSocketId);
+        if (!player)
+            return false;
+        // Update player ID in game state
+        game.players.delete(oldSocketId);
+        player.id = newSocketId;
+        game.players.set(newSocketId, player);
+        return true;
     }
 }
 // Export singleton instance

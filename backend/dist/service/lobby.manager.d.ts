@@ -27,6 +27,23 @@ export declare class LobbyManager {
         code: string;
     } | null;
     /**
+     * Mark a player as disconnected (don't remove during game)
+     * Allows rejoin by name within the same lobby
+     */
+    markDisconnected(socketId: string): {
+        lobby: Lobby | null;
+        code: string;
+        playerName: string;
+    } | null;
+    /**
+     * Rejoin a lobby by name (for reconnecting players)
+     * Returns the player's previous state if found
+     */
+    rejoinLobby(code: string, newSocketId: string, playerName: string): {
+        lobby: Lobby;
+        oldSocketId: string;
+    } | null;
+    /**
      * Set a player's ready status
      */
     setReady(socketId: string, ready: boolean): Lobby;

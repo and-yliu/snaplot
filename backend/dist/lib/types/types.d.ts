@@ -6,6 +6,7 @@ export interface Player {
     name: string;
     isHost: boolean;
     isReady: boolean;
+    isConnected: boolean;
 }
 export interface GameSettings {
     rounds: number;
@@ -87,12 +88,7 @@ export interface SubmitPhotoPayload {
 }
 export interface LobbyStatePayload {
     code: string;
-    players: Array<{
-        id: string;
-        name: string;
-        isHost: boolean;
-        isReady: boolean;
-    }>;
+    players: Array<Player>;
     hostId: string;
     status: 'waiting' | 'starting' | 'in-game';
     allReady: boolean;
@@ -147,5 +143,9 @@ export interface FinalAwardsPayload {
         name: string;
         wins: number;
     }>;
+}
+export interface RejoinPayload {
+    code: string;
+    name: string;
 }
 //# sourceMappingURL=types.d.ts.map

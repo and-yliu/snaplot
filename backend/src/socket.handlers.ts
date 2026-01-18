@@ -16,6 +16,7 @@
  * - lobby:settings { rounds?, roundTimeSeconds? }  Update game settings (host only)
  * - lobby:start    (no payload)               Start the game (host only)
  * - game:submit    { photoPath }              Submit photo for current round
+ * - game:next-round-ready (no payload)        Confirm ready to continue after results
  * 
  * SERVER -> CLIENT (on):
  * - lobby:state        Full lobby state with players and settings
@@ -29,6 +30,7 @@
  * - game:player-submitted  Player submitted their photo
  * - game:judging         AI is judging submissions
  * - game:round-result    Round winner with photo and one-liner
+ * - game:next-round-status  Ready count for next round
  * - game:complete        Story complete with all results
  * - game:awards          Final awards (Judge's Favorite, Most Clueless)
  * - game:error           Game error message
@@ -331,6 +333,40 @@ export function setupSocketHandlers(io: Server): void {
             });
         });
 
+        /**
+         * game:next-round-ready - Player confirms ready to proceed after results
+         * Once all players confirm, server emits next `game:round` (or `game:complete` if final).
+         * @emits game:next-round-status - Ready count update
+         * @emits game:round - Next round info (when all ready)
+         * @emits game:complete - Completed story (if final round and all ready)
+         * @emits game:awards - Final awards (if final round and all ready)
+         */
+        socket.on('game:next-round-ready', async () => {
+            try {
+                const lobbyCode = lobbyManager.getPlayerLobby(socket.id);
+                if (!lobbyCode) {
+                    socket.emit('game:error', { message: 'Not in a game' });
+                    return;
+                }
+
+                const game = gameManager.getGame(lobbyCode);
+                if (!game) {
+                    socket.emit('game:error', { message: 'Game not found' });
+                    return;
+                }
+
+                if (game.status !== 'results') {
+                    socket.emit('game:error', { message: 'Not ready to continue yet' });
+                    return;
+                }
+
+                gameManager.setPlayerReadyForNextRound(lobbyCode, socket.id);
+                await maybeAdvanceAfterResults(io, lobbyCode);
+            } catch (err) {
+                socket.emit('game:error', { message: (err as Error).message });
+            }
+        });
+
         // ========================================================================
         // Disconnect
         // ========================================================================
@@ -388,6 +424,15 @@ function handlePlayerLeave(io: Server, socket: Socket): void {
 
     socket.leave(code);
 
+    // Keep game state in sync if someone leaves mid-game/results
+    const game = gameManager.getGame(code);
+    if (game) {
+        gameManager.removePlayerFromGame(code, socket.id);
+        if (game.status === 'results') {
+            void maybeAdvanceAfterResults(io, code);
+        }
+    }
+
     if (lobby) {
         const state = lobbyManager.toLobbyState(lobby);
         io.to(code).emit('lobby:state', state);
@@ -433,14 +478,23 @@ async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
         });
     }
 
-    // Wait for players to see results, then advance
-    setTimeout(async () => {
-        const currentGame = gameManager.getGame(lobbyCode);
-        if (!currentGame) return;
+    // Reset readiness and notify clients we are waiting for confirmations
+    gameManager.resetNextRoundReady(lobbyCode);
+    io.to(lobbyCode).emit('game:next-round-status', { readyCount: 0, totalPlayers: game.players.size });
+}
 
-        // Advance to next round or complete game
-        const nextGame = gameManager.nextRound(lobbyCode);
-        if (!nextGame) return;
+async function maybeAdvanceAfterResults(io: Server, lobbyCode: string): Promise<void> {
+    const game = gameManager.getGame(lobbyCode);
+    if (!game) return;
+    if (game.status !== 'results') return;
+
+    const { readyCount, totalPlayers, allReady } = gameManager.getNextRoundReadyStatus(lobbyCode);
+    io.to(lobbyCode).emit('game:next-round-status', { readyCount, totalPlayers });
+
+    if (!allReady) return;
+
+    const nextGame = gameManager.nextRound(lobbyCode);
+    if (!nextGame) return;
 
         if (nextGame.status === 'complete') {
             // Game over - get awards first to find the "Most Clueless" player
@@ -452,12 +506,10 @@ async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
             io.to(lobbyCode).emit('game:complete', completePayload);
             io.to(lobbyCode).emit('game:awards', awardsPayload);
 
-            gameManager.endGame(lobbyCode);
-            console.log(`Game completed in lobby ${lobbyCode}`);
-        } else {
-            // Send next round info
-            const roundPayload = gameManager.getRoundPayload(nextGame);
-            io.to(lobbyCode).emit('game:round', roundPayload);
-        }
-    }, 8000); // 8 seconds to view results
+        gameManager.endGame(lobbyCode);
+        console.log(`Game completed in lobby ${lobbyCode}`);
+    } else {
+        const roundPayload = gameManager.getRoundPayload(nextGame);
+        io.to(lobbyCode).emit('game:round', roundPayload);
+    }
 }

@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/namespace
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, Animated, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,26 +9,49 @@ import type { ComponentProps } from 'react';
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
-import { useSocket } from '@/hooks/useSocket';
+import { SERVER_URL, useSocket } from '@/hooks/useSocket';
 
 export default function RoundResultScreen() {
   const router = useRouter();
-  const { remoteReactions, consumeReaction, sendReaction } = useSocket();
+  const {
+    roundResult,
+    roundResultContext,
+    nextRoundStatus,
+    readyForNextRound,
+    currentRound,
+    pendingNavigation,
+    clearPendingNavigation,
+    remoteReactions,
+    consumeReaction,
+    sendReaction,
+  } = useSocket();
 
   // Animation States
   const [step, setStep] = useState(0); // 0: Init, 1: Criteria, 2: Winner, 3: Comment, 4: Done
   const opacityAnim = useRef(new Animated.Value(0)).current; // For Comment Card
   const hasRun = useRef(false); // Ref to prevent double execution
+  const [hasConfirmed, setHasConfirmed] = useState(false);
 
-  // Mock Data
-  const criteria = "The Weakest";
-  const winnerName = "Alice";
-  const winnerText = "{winner} would use this when in a fight with crocodiles";
-  const comment = "“Even my grandma can beat your ass with you holding that.”";
+  const criteria = roundResultContext?.criteria ?? '';
+  const theme = roundResultContext?.theme ?? '';
+  const winnerName = roundResult?.winnerName ?? '';
+  const winnerText = theme ? `${winnerName} would use this: ${theme}` : `${winnerName} wins this round`;
+  const comment = roundResult?.oneliner ?? '';
+  const winnerPhotoUrl = roundResult?.photoPath
+    ? `${SERVER_URL}/${roundResult.photoPath.replace(/^\/+/, '')}`
+    : null;
 
   const player = useAudioPlayer(require('@/assets/audios/drum_roll.mp3'));
 
   useEffect(() => {
+    hasRun.current = false;
+    opacityAnim.setValue(0);
+    setStep(0);
+    setHasConfirmed(false);
+  }, [roundResult?.round, opacityAnim]);
+
+  useEffect(() => {
+    if (!roundResult) return;
     if (hasRun.current) return;
     hasRun.current = true;
 
@@ -71,11 +93,25 @@ export default function RoundResultScreen() {
     };
 
     runSequence();
-  }, [opacityAnim, player]); // Depend on player availability
+  }, [opacityAnim, player, roundResult]); // Depend on player availability
 
-  const handleNextRound = () => {
-    // Go to next round or home
-    router.back();
+  useEffect(() => {
+    if (!roundResult?.round) return;
+    if (!currentRound?.round) return;
+    if (currentRound.round === roundResult.round + 1) {
+      router.replace('/game');
+    }
+  }, [currentRound?.round, roundResult?.round, router]);
+
+  useEffect(() => {
+    if (pendingNavigation?.type !== 'game') return;
+    clearPendingNavigation();
+    router.replace('/game');
+  }, [pendingNavigation, clearPendingNavigation, router]);
+
+  const handleReadyNextRound = () => {
+    readyForNextRound();
+    setHasConfirmed(true);
   };
 
   return (
@@ -91,16 +127,18 @@ export default function RoundResultScreen() {
         {step >= 2 && (
           <View style={styles.winnerContainer}>
             <Text style={styles.winnerText}>
-              {winnerText.replace('{winner}', winnerName)}
+              {winnerText}
             </Text>
             {/* Image Placeholder - Replicating the Cup Image style */}
             <View style={styles.imageContainer}>
               {/* Using a placeholder view for now as I don't have the specific cup image asset */}
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=3454&auto=format&fit=crop' }}
-                style={styles.winnerImage}
-                resizeMode="cover"
-              />
+              {winnerPhotoUrl ? (
+                <Image
+                  source={{ uri: winnerPhotoUrl }}
+                  style={styles.winnerImage}
+                  resizeMode="cover"
+                />
+              ) : null}
             </View>
           </View>
         )}
@@ -138,8 +176,12 @@ export default function RoundResultScreen() {
             </View>
 
             <NeoButton
-              title="Next Round (1/3)"
-              onPress={handleNextRound}
+              title={
+                hasConfirmed
+                  ? 'READY ✓'
+                  : `READY (${nextRoundStatus?.readyCount ?? 0}/${nextRoundStatus?.totalPlayers ?? 0})`
+              }
+              onPress={handleReadyNextRound}
               variant="primary"
               style={styles.nextButton}
             />
