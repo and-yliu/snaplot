@@ -393,15 +393,23 @@ export class GameManager {
         const maxWins = Math.max(...players.map(p => p.winCount));
         const minWins = Math.min(...players.map(p => p.winCount));
 
-        // Judge's Favorite: player(s) with most wins
-        const judgesFavorite = players
-            .filter(p => p.winCount === maxWins && maxWins > 0)
-            .map(p => ({ playerId: p.id, name: p.name, wins: p.winCount }));
+        // Judge's Favorite: pick ONE player with most wins (random if tied)
+        const favoritePool = players.filter(p => p.winCount === maxWins && maxWins > 0);
+        const favorite = favoritePool.length > 0
+            ? favoritePool[Math.floor(Math.random() * favoritePool.length)]
+            : null;
+        const judgesFavorite = favorite
+            ? { playerId: favorite.id, name: favorite.name, wins: favorite.winCount }
+            : null;
 
-        // Most Clueless: player(s) with fewest wins (including 0)
-        const mostClueless = players
-            .filter(p => p.winCount === minWins && minWins < maxWins)
-            .map(p => ({ playerId: p.id, name: p.name, wins: p.winCount }));
+        // Most Clueless: pick ONE player with fewest wins (random if tied)
+        const cluelessPool = players.filter(p => p.winCount === minWins && minWins < maxWins);
+        const clueless = cluelessPool.length > 0
+            ? cluelessPool[Math.floor(Math.random() * cluelessPool.length)]
+            : null;
+        const mostClueless = clueless
+            ? { playerId: clueless.id, name: clueless.name, wins: clueless.winCount }
+            : null;
 
         return { judgesFavorite, mostClueless };
     }

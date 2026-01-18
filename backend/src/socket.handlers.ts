@@ -325,9 +325,9 @@ export function setupSocketHandlers(io: Server): void {
                 socket.emit('game:error', { message: 'Not in a game' });
                 return;
             }
-            socket.to(lobbyCode).emit('game:reaction', { 
-                playerId: socket.id, 
-                icon 
+            socket.to(lobbyCode).emit('game:reaction', {
+                playerId: socket.id,
+                icon
             });
         });
 
@@ -445,7 +445,7 @@ async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
         if (nextGame.status === 'complete') {
             // Game over - get awards first to find the "Most Clueless" player
             const awardsPayload = gameManager.getFinalAwardsPayload(nextGame);
-            const trollName = awardsPayload.mostClueless[0]?.name ?? 'The Adventurer';
+            const trollName = awardsPayload.mostClueless?.name ?? 'The Adventurer';
 
             // Generate recap with troll name and send complete story
             const completePayload = await gameManager.getGameCompletePayload(nextGame, trollName);
