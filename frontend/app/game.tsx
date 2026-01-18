@@ -40,6 +40,17 @@ export default function GameScreen() {
         uploadAndSubmitPhoto,
     } = useSocket();
 
+    // Delay camera mount to prevent crashes on slower devices
+    const [cameraReady, setCameraReady] = useState(false);
+
+    useEffect(() => {
+        // Delay camera initialization slightly to let the screen mount first
+        const timer = setTimeout(() => {
+            setCameraReady(true);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
+
     useEffect(() => {
         if (permission && !permission.granted) {
             requestPermission();
@@ -98,7 +109,7 @@ export default function GameScreen() {
                     setPhoto(photo.uri);
                 }
             } catch (error) {
-                console.error('Failed to take photo:', error);
+                console.error('Failed to take photo:', error); //!!!!
             }
         }
     };
@@ -108,7 +119,8 @@ export default function GameScreen() {
     };
 
     const handleSubmit = () => {
-        if (!photo || isUploading || hasSubmitted) return;
+        // Don't allow new submissions when time is up (grace period is for in-flight requests only)
+        if (!photo || isUploading || hasSubmitted || timeLeft <= 0) return;
         setHasSubmitted(true);
         setIsUploading(true);
         uploadAndSubmitPhoto(photo)
@@ -169,7 +181,7 @@ export default function GameScreen() {
             <View className="flex-1 rounded-2xl overflow-hidden bg-black mb-5 border-2 border-neo-border">
                 {photo ? (
                     <Image source={{ uri: photo }} className="flex-1 justify-end items-center" resizeMode="cover" />
-                ) : (
+                ) : cameraReady ? (
                     <>
                         <CameraView
                             style={StyleSheet.absoluteFill}
@@ -187,6 +199,10 @@ export default function GameScreen() {
                             </TouchableOpacity>
                         </View>
                     </>
+                ) : (
+                    <View className="flex-1 items-center justify-center">
+                        <Text className="text-white text-lg">Loading camera...</Text>
+                    </View>
                 )}
             </View>
 
@@ -200,7 +216,7 @@ export default function GameScreen() {
                     </View>
 
                     {/* Buttons - on the right, only show when photo taken and not submitted */}
-                    {photo && !hasSubmitted ? (
+                    {photo && !hasSubmitted && timeLeft > 0 ? (
                         <>
                             <NeoButton
                                 title={isUploading ? 'uploading...' : 'submit'}

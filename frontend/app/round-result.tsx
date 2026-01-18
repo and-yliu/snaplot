@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
@@ -9,6 +9,24 @@ import type { ComponentProps } from 'react';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoView } from '@/components/ui/NeoView';
 import { SERVER_URL, useSocket } from '@/hooks/useSocket';
+
+// Mock Data for Testing
+const MOCK_ROUND_RESULT = {
+  round: 1,
+  winnerName: 'Alice',
+  oneliner: "Even my grandma can beat your ass with you holding that.",
+  photoPath: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=3454&auto=format&fit=crop'
+};
+
+const MOCK_CONTEXT = {
+  criteria: "The Weakest",
+  theme: "Survival Kit"
+};
+
+const MOCK_NEXT_STATUS = {
+  readyCount: 3,
+  totalPlayers: 4
+};
 
 export default function RoundResultScreen() {
   const router = useRouter();
@@ -32,14 +50,24 @@ export default function RoundResultScreen() {
   const [hasConfirmed, setHasConfirmed] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
+  const timeoutIds = useRef<any[]>([]);
 
-  const criteria = roundResultContext?.criteria ?? '';
-  const theme = roundResultContext?.theme ?? '';
-  const winnerName = roundResult?.winnerName ?? '';
+  // Determine if we are in mock mode (no real data)
+  const isMockMode = !roundResult;
+
+  const resultData = roundResult || MOCK_ROUND_RESULT;
+  const contextData = roundResultContext || MOCK_CONTEXT;
+  const statusData = nextRoundStatus || MOCK_NEXT_STATUS;
+
+  const criteria = contextData.criteria ?? '';
+  const theme = contextData.theme ?? '';
+  const winnerName = resultData.winnerName ?? '';
   const winnerText = theme ? `${winnerName} would use this: ${theme}` : `${winnerName} wins this round`;
-  const comment = roundResult?.oneliner ?? '';
-  const winnerPhotoUrl = roundResult?.photoPath
-    ? `${SERVER_URL}/${roundResult.photoPath.replace(/^\/+/, '')}`
+  const comment = resultData.oneliner ?? '';
+  const winnerPhotoUrl = resultData.photoPath
+    ? resultData.photoPath.startsWith('http')
+      ? resultData.photoPath
+      : `${SERVER_URL}/${resultData.photoPath.replace(/^\/+/, '')}`
     : null;
 
   // Load audio on mount
@@ -71,12 +99,22 @@ export default function RoundResultScreen() {
   }, [roundResult?.round, opacityAnim]);
 
   useEffect(() => {
-    if (!roundResult) return;
+    // In mock mode, we just run. In real mode, we wait for roundResult
+    if (!isMockMode && !roundResult) return;
     if (hasRun.current) return;
     hasRun.current = true;
 
+    // Track timeouts to clear them on unmount
+
+    const safeSetTimeout = (callback: () => void, delay: number) => {
+      const id = setTimeout(callback, delay);
+      timeoutIds.current.push(id);
+      return id;
+    };
+
     const runSequence = async () => {
       // Step 0: Initial State (Just "Criteria:" label logic handled in render)
+      console.log('Running sequence...');
 
       // Step 1: Reveal Criteria Content
       try {
@@ -86,13 +124,17 @@ export default function RoundResultScreen() {
       } // Play Drum Roll
 
       // Wait 2s for drum roll to finish/reach peak
-      setTimeout(() => {
+      safeSetTimeout(() => {
+        if (!hasRun.current) return; // Guard against unmount
         setStep(1); // Show Criteria Text
 
         // GAP 1: 1s sleep after criteria content shown
-        setTimeout(() => {
+        safeSetTimeout(() => {
+          if (!hasRun.current) return;
           // Step 2: Winner Reveal
           const playSecond = async () => {
+            // Check if mounted
+            if (!hasRun.current) return;
             try {
               if (soundRef.current) await soundRef.current.replayAsync();
             } catch (e) { }
@@ -100,19 +142,20 @@ export default function RoundResultScreen() {
           playSecond();
 
           // Wait 2s
-          setTimeout(() => {
+          safeSetTimeout(() => {
+            if (!hasRun.current) return;
             setStep(2); // Show Winner Info
 
             // GAP 2: 1s pause before Judge's Comment
-            setTimeout(() => {
+            safeSetTimeout(() => {
+              if (!hasRun.current) return;
               setStep(3);
               Animated.timing(opacityAnim, {
                 toValue: 1,
                 duration: 3000, // Longer ease-in (3s)
                 useNativeDriver: true,
               }).start(() => {
-                // Step 4: Final Actions
-                setStep(4);
+                if (hasRun.current) setStep(4);
               });
             }, 1000); // Increased delay to ensure 1s+ gap
           }, 2000);
@@ -121,7 +164,21 @@ export default function RoundResultScreen() {
     };
 
     runSequence();
-  }, [opacityAnim, roundResult]); // Depend on player availability
+
+    return () => {
+      console.log('Cleaning up sequence...');
+      hasRun.current = false; // Mark as unmounted/invalid
+      timeoutIds.current.forEach(clearTimeout);
+      timeoutIds.current = [];
+      if (soundRef.current) {
+        try {
+          soundRef.current.stopAsync().catch(() => { });
+        } catch (e) {
+          // Sound not loaded, ignore
+        }
+      }
+    };
+  }, [opacityAnim, resultData, isMockMode, roundResult]); // Depend on player availability
 
   // ... rest of the component
 
@@ -154,95 +211,101 @@ export default function RoundResultScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-neo-background" edges={['top', 'left', 'right', 'bottom']}>
-      <View className="flex-1 w-full px-6 py-4">
+      <View className="flex-1 w-full py-0">
 
         {/* Round Header */}
-        <View className="w-full items-center mb-4">
+        <View className="w-full items-center mb-1 px-6">
           <Text
             className="text-base text-neo-text/60"
             style={{ fontFamily: 'Nunito_600SemiBold' }}
           >
-            ROUND {roundResult?.round ?? 1} WINNER
+            ROUND {resultData?.round ?? 1} WINNER
           </Text>
         </View>
 
-        {/* Theme & Criteria Section */}
-        <View className="w-full mb-4">
-          <View className="mb-2">
-            <Text
-              className="text-sm text-neo-text/50 uppercase tracking-wider"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              Theme
-            </Text>
-            <Text
-              className="text-xl text-neo-text"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              {step >= 1 ? theme : '...'}
-            </Text>
-          </View>
-          <View>
-            <Text
-              className="text-sm text-neo-text/50 uppercase tracking-wider"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              Criteria
-            </Text>
-            <Text
-              className="text-xl text-neo-text"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              {step >= 1 ? criteria : '...'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Winner Section with Comment */}
-        {step >= 2 && (
-          <View className="w-full relative">
-            {/* Winner Photo */}
-            <View className="w-full rounded-2xl aspect-square bg-white border-2 border-neo-border overflow-hidden">
-              {winnerPhotoUrl ? (
-                <Image
-                  source={{ uri: winnerPhotoUrl }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
-              ) : null}
-            </View>
-
-            {/* Winner Name Tag - overlaid on top right */}
-            <View className="absolute top-3 right-3 bg-black px-4 py-1.5 rounded-full">
+        {/* Scrollable Content Area */}
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 24 }}
+        >
+          {/* Theme & Criteria Section */}
+          <View className="w-full mb-1">
+            <View className="mb-1">
               <Text
-                className="text-base text-white"
+                className="text-sm text-neo-text/50 uppercase tracking-wider"
                 style={{ fontFamily: 'Nunito_700Bold' }}
               >
-                {winnerName}
+                Theme
+              </Text>
+              <Text
+                className="text-xl text-neo-text"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                {step >= 1 ? theme : '...'}
+              </Text>
+            </View>
+            <View>
+              <Text
+                className="text-sm text-neo-text/50 uppercase tracking-wider"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                Criteria
+              </Text>
+              <Text
+                className="text-xl text-neo-text"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                {step >= 1 ? criteria : '...'}
               </Text>
             </View>
           </View>
-        )}
 
-        {/* Judge's Comment - grouped with image */}
-        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 16 }}>
-          {step >= 3 && (
-            <NeoView className="w-full bg-[#FFF5EB] p-4 mt-3">
-              <Text
-                className="text-xl text-[#4caf50]"
-                style={{ fontFamily: 'Nunito_600SemiBold', lineHeight: 26 }}
-              >
-                "{comment}"
-              </Text>
-            </NeoView>
+          {/* Winner Section with Comment */}
+          {step >= 2 && (
+            <View className="w-full relative">
+              {/* Winner Photo */}
+              <View className="w-full rounded-2xl aspect-square bg-white border-2 border-neo-border overflow-hidden">
+                {winnerPhotoUrl ? (
+                  <Image
+                    source={{ uri: winnerPhotoUrl }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                ) : null}
+              </View>
+
+              {/* Winner Name Tag - overlaid on top right */}
+              <View className="absolute top-3 right-3 bg-black px-4 py-1.5 rounded-full">
+                <Text
+                  className="text-base text-white"
+                  style={{ fontFamily: 'Nunito_700Bold' }}
+                >
+                  {winnerName}
+                </Text>
+              </View>
+            </View>
           )}
-        </Animated.View>
+
+          {/* Judge's Comment - grouped with image */}
+          <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 5 }}>
+            {step >= 3 && (
+              <NeoView className="w-full bg-[#FFF5EB] mt-1">
+                <TypewriterText
+                  text={`"${comment}"`}
+                  className="text-xl text-[#4caf50]"
+                  style={{ fontFamily: 'Nunito_600SemiBold', lineHeight: 26 }}
+                />
+              </NeoView>
+            )}
+          </Animated.View>
+        </ScrollView>
 
       </View>
 
       {/* Fixed Footer - Reactions & Ready Button */}
       {step >= 4 && (
-        <View className="absolute bottom-0 left-0 right-0 px-6 mb-10 pt-3 bg-neo-background gap-6">
+        <View className="absolute bottom-0 left-0 right-0 px-6 mb-10 pt-3 bg-neo-background gap-4">
           {/* Remote reactions from other players - positioned above the buttons */}
           <View style={{ position: 'absolute', top: -150, left: 0, right: 0, height: 150, pointerEvents: 'none' }}>
             {remoteReactions.map((reaction) => (
@@ -255,7 +318,7 @@ export default function RoundResultScreen() {
             ))}
           </View>
 
-          <View className="flex-row justify-between w-full mb-2.5 z-10">
+          <View className="flex-row justify-between w-full mb-1 z-10">
             <NeoReactionButton icon="thumbs-up" color="#E8C547" onSend={sendReaction} />
             <NeoReactionButton icon="thumbs-down" color="#E8C547" onSend={sendReaction} />
             <NeoReactionButton icon="egg" color="#E8C547" onSend={sendReaction} />
@@ -266,7 +329,7 @@ export default function RoundResultScreen() {
             title={
               hasConfirmed
                 ? 'READY ✓'
-                : `READY (${nextRoundStatus?.readyCount ?? 0}/${nextRoundStatus?.totalPlayers ?? 0})`
+                : `READY (${statusData?.readyCount ?? 0}/${statusData?.totalPlayers ?? 0})`
             }
             onPress={handleReadyNextRound}
             variant="primary"
@@ -317,8 +380,8 @@ function NeoReactionButton({ icon, color, onSend }: { icon: IconName; color: str
 
 function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; color: string; onComplete: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
-  // Random horizontal position (20-80% of container width)
-  const randomLeft = useRef(`${20 + Math.random() * 60}%` as any).current;
+  // Random horizontal position (10-90% of container width)
+  const randomLeft = useRef(Math.floor(10 + Math.random() * 80)).current;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -348,7 +411,7 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; col
       style={{
         position: 'absolute',
         bottom: 0,
-        left: randomLeft,
+        left: `${randomLeft}%`,
         transform: [{ translateX: -20 }, { translateY }, { scale }],
         opacity,
         zIndex: 100,
@@ -356,5 +419,29 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; col
     >
       <Ionicons name={icon as IconName} size={40} color={color} />
     </Animated.View>
+  );
+}
+
+function TypewriterText({ text, style, className }: { text: string, style?: any, className?: string }) {
+  const [displayedText, setDisplayedText] = useState('');
+
+  useEffect(() => {
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      if (currentIndex <= text.length) {
+        setDisplayedText(text.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 30); // Tuning speed
+
+    return () => clearInterval(intervalId);
+  }, [text]);
+
+  return (
+    <Text className={className} style={style}>
+      {displayedText}
+    </Text>
   );
 }

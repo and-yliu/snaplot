@@ -54,7 +54,7 @@ export default function HostWaitingRoomScreen() {
 
     const handleLeaveRoom = () => {
         leaveLobby();
-        router.back();
+        router.replace('/');
     };
 
     const currentPlayerId = socket?.id;

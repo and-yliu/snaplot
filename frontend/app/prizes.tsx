@@ -12,6 +12,7 @@ export default function PrizesScreen() {
     const handleReturnToRoom = () => {
         if (!lobbyState || !lobbyState.code) {
             // Fallback if state is lost
+            router.dismissAll();
             router.replace('/');
             return;
         }
@@ -20,8 +21,11 @@ export default function PrizesScreen() {
         const currentPlayer = lobbyState.players.find(p => p.id === socket?.id);
         const nickname = currentPlayer?.name || 'Player';
 
+        // Dismiss all screens and navigate fresh to waiting room
+        router.dismissAll();
+
         if (isHost) {
-            router.push({
+            router.replace({
                 pathname: '/host-waiting-room',
                 params: {
                     nickname,
@@ -29,7 +33,7 @@ export default function PrizesScreen() {
                 }
             });
         } else {
-            router.push({
+            router.replace({
                 pathname: '/player-waiting-room',
                 params: {
                     nickname,
@@ -41,6 +45,7 @@ export default function PrizesScreen() {
 
     const handleQuitRoom = () => {
         leaveLobby();
+        router.dismissAll();
         router.replace('/');
     };
 

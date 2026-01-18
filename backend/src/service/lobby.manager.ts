@@ -217,7 +217,7 @@ export class LobbyManager {
      */
     allPlayersReady(code: string): boolean {
         const lobby = this.lobbies.get(code);
-        if (!lobby || lobby.players.size < 2) {
+        if (!lobby || lobby.players.size < 1) {
             return false;
         }
 
