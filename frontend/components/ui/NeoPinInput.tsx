@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, TextInput, StyleSheet, NativeSyntheticEvent, TextInputKeyPressEventData } from 'react-native';
+import { View, TextInput, NativeSyntheticEvent, TextInputKeyPressEventData } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 
@@ -35,15 +35,16 @@ export function NeoPinInput({ length = 4, onComplete }: NeoPinInputProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <View className="flex-row gap-3 justify-center w-full">
       {pin.map((digit, index) => (
-        <View key={index} style={styles.inputWrapper}>
-          <View style={styles.shadow} />
+        <View key={index} className="w-[60px] h-[70px] relative">
+          <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-none" />
           <TextInput
             ref={(ref) => {
               if (ref) inputs.current[index] = ref;
             }}
-            style={styles.input}
+            className="w-full h-full bg-neo-card border-2 border-neo-border text-2xl text-center rounded-none text-neo-text"
+            style={{ fontFamily: 'Nunito_700Bold' }}
             value={digit}
             onChangeText={(text) => handleChange(text, index)}
             onKeyPress={(e) => handleKeyPress(e, index)}
@@ -57,38 +58,3 @@ export function NeoPinInput({ length = 4, onComplete }: NeoPinInputProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'center',
-    width: '100%',
-  },
-  inputWrapper: {
-    width: 60,
-    height: 70,
-    position: 'relative',
-  },
-  shadow: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    right: -4,
-    bottom: -4,
-    backgroundColor: Colors.neo.shadow,
-    borderRadius: 0,
-  },
-  input: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.neo.card,
-    borderWidth: 2,
-    borderColor: Colors.neo.border,
-    fontSize: 24,
-    fontFamily: 'Nunito_700Bold',
-    textAlign: 'center',
-    color: Colors.neo.text,
-    borderRadius: 0,
-  },
-});

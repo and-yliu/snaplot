@@ -1,5 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { View, Text, TouchableOpacity } from 'react-native';
 
 
 interface NeoCounterProps {
@@ -29,107 +28,60 @@ export function NeoCounter({ label, value, onChange, min = 0, max = 100, step = 
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}:</Text>
-      <View style={styles.counterWrapper}>
-        <View style={styles.shadow} />
-        <View style={styles.counterContent}>
+    <View className="flex-row items-center justify-between w-full mb-4">
+      <Text
+        className="text-xl flex-1 text-neo-text"
+        style={{ fontFamily: 'Nunito_600SemiBold' }}
+      >
+        {label}:
+      </Text>
+      <View className="w-[160px] h-[50px] relative">
+        <View className="absolute top-[4px] left-[4px] -right-[4px] -bottom-[4px] bg-neo-shadow rounded-lg" />
+        <View className="flex-row items-center justify-between w-full h-full bg-neo-card border-2 border-neo-border rounded-lg px-2">
           <TouchableOpacity
             onPress={handleDecrement}
-            style={styles.button}
+            className="w-10 h-full items-center justify-center"
             disabled={isAtMin}
           >
-            <Text style={[styles.buttonText, isAtMin && styles.buttonDisabled]}>-</Text>
+            <Text
+              className={`text-2xl text-center ${isAtMin ? 'text-[#CCCCCC] opacity-50' : 'text-neo-text'}`}
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              -
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.valueContainer}>
-            <Text style={styles.value}>{value}</Text>
-            {unit && <Text style={styles.unit}>{unit}</Text>}
+          <View className="flex-row items-center gap-1">
+            <Text
+              className="text-xl text-neo-text"
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              {value}
+            </Text>
+            {unit && (
+              <Text
+                className="text-base text-neo-text opacity-70"
+                style={{ fontFamily: 'Nunito_600SemiBold' }}
+              >
+                {unit}
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
             onPress={handleIncrement}
-            style={styles.button}
+            className="w-10 h-full items-center justify-center"
             disabled={isAtMax}
           >
-            <Text style={[styles.buttonText, isAtMax && styles.buttonDisabled]}>+</Text>
+            <Text
+              className={`text-2xl text-center ${isAtMax ? 'text-[#CCCCCC] opacity-50' : 'text-neo-text'}`}
+              style={{ fontFamily: 'Nunito_700Bold' }}
+            >
+              +
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 20,
-    fontFamily: 'Nunito_600SemiBold',
-    color: Colors.neo.text,
-    flex: 1,
-  },
-  counterWrapper: {
-    width: 160,
-    height: 50,
-    position: 'relative',
-  },
-  shadow: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    right: -4,
-    bottom: -4,
-    backgroundColor: Colors.neo.shadow,
-    borderRadius: 8, // Slightly rounded for the pill shape
-  },
-  counterContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.neo.card, // White background
-    borderWidth: 2,
-    borderColor: Colors.neo.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-  },
-  button: {
-    width: 40,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontSize: 24,
-    fontFamily: 'Nunito_700Bold',
-    color: Colors.neo.text,
-    textAlign: 'center',
-  },
-  buttonDisabled: {
-    color: '#CCCCCC', // Grey/faded color when disabled
-    opacity: 0.5,
-  },
-  valueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  value: {
-    fontSize: 20,
-    fontFamily: 'Nunito_700Bold',
-    color: Colors.neo.text,
-  },
-  unit: {
-    fontSize: 16,
-    fontFamily: 'Nunito_600SemiBold',
-    color: Colors.neo.text,
-    opacity: 0.7,
-  },
-});

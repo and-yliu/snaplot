@@ -1,0 +1,35 @@
+{
+  "storyTemplate": "I woke up this morning to find a giant {0} sitting on my front porch, looking very distinguished. To keep it company, I offered it a snack consisting of my favorite {1} and a glass of milk. We spent the afternoon traveling to the park using a {2} as our primary mode of transportation. Once we arrived, we participated in a local contest to find the world's most impressive {3}. The judges were so moved by our entry that they awarded us a {4} as a trophy. I celebrated my victory by wearing a {5} on my head for the rest of the day.",
+  "blanks": [
+    {
+      "index": 0,
+      "theme": "A creature from a far-off planet",
+      "criteria": "the most extra-terrestrial looking"
+    },
+    {
+      "index": 1,
+      "theme": "A treat for a very hungry goblin",
+      "criteria": "the most delicious-looking"
+    },
+    {
+      "index": 2,
+      "theme": "A futuristic getaway vehicle",
+      "criteria": "the most aerodynamic"
+    },
+    {
+      "index": 3,
+      "theme": "An item that looks like it has a face",
+      "criteria": "the most expressive facial features"
+    },
+    {
+      "index": 4,
+      "theme": "A treasure found in a dragon's hoard",
+      "criteria": "the shiniest"
+    },
+    {
+      "index": 5,
+      "theme": "An unconventional crown",
+      "criteria": "the most chaotic fashion choice"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { Text, View, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
@@ -7,11 +7,15 @@ import { useCameraPermissions } from 'expo-camera';
 import { Colors } from '@/constants/theme';
 import { NeoButton } from '@/components/ui/NeoButton';
 import { NeoInput } from '@/components/ui/NeoInput';
+import { useSocket } from '@/hooks/useSocket';
+
+const fullWidthButtonStyle = { width: '100%' } as const;
 
 export default function HomeScreen() {
   const router = useRouter();
   const [nickname, setNickname] = useState('');
   const [permission, requestPermission] = useCameraPermissions();
+  const { isConnected, lobbyState, error, createLobby } = useSocket();
 
   // Request camera permission when component mounts
   useEffect(() => {
@@ -20,19 +24,43 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Navigate to host waiting room when lobby is created (only if we're the host)
+  useEffect(() => {
+    if (lobbyState && lobbyState.code) {
+      router.push({
+        pathname: '/host-waiting-room',
+        params: {
+          nickname,
+          roomPin: lobbyState.code
+        }
+      });
+    }
+  }, [lobbyState]);
+
+  // Show error if lobby creation fails
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Error', error);
+    }
+  }, [error]);
+
   const handleCreateGame = () => {
     if (!nickname.trim()) {
-      alert('Please enter a nickname');
+      Alert.alert('Error', 'Please enter a nickname');
       return;
     }
-    // Navigate to host waiting room
+    if (!isConnected) {
+      Alert.alert('Error', 'Not connected to server. Please try again.');
+      return;
+    }
+    // Create lobby via socket
     console.log('Create Game with nickname:', nickname);
-    router.push({ pathname: '/host-waiting-room', params: { nickname } });
+    createLobby(nickname.trim());
   };
 
   const handleJoinGame = () => {
     if (!nickname.trim()) {
-      alert('Please enter a nickname');
+      Alert.alert('Error', 'Please enter a nickname');
       return;
     }
     // Navigate to join game flow with nickname
@@ -41,120 +69,63 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.background}>
-      <SafeAreaView style={styles.container}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoid}
-          >
-            <View style={styles.content}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('@/assets/images/snapplot_logo.png')}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <NeoInput
-                  placeholder="Nickname"
-                  value={nickname}
-                  onChangeText={setNickname}
-                  autoCorrect={false}
-                />
-              </View>
-
-              <View style={styles.createButtonContainer}>
-                <NeoButton
-                  title="➕Create a Game"
-                  onPress={handleCreateGame}
-                  variant="primary"
-                  style={styles.button}
-                />
-              </View>
-
-              <View style={styles.buttonContainer}>
-                <NeoButton
-                  title="👥 Join a Game"
-                  onPress={handleJoinGame}
-                  variant="outline"
-                  style={styles.button}
-                />
-                <NeoButton
-                  title="🏆 Test Round Result"
-                  onPress={() => router.push('/round-result' as any)}
-                  variant="secondary"
-                  style={styles.button}
-                />
-              </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.neo.background }}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 w-full"
+        >
+          <View className="flex-1 items-center justify-center px-6">
+            <View className="items-center mb-8 -mt-36">
+              <Image
+                source={require('@/assets/images/snapplot_logo.png')}
+                className="w-[370px] h-[150px]"
+                resizeMode="contain"
+              />
             </View>
-          </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
-      </SafeAreaView>
-    </View>
+
+            <View className="flex-row items-center mb-5">
+              <View
+                className="h-2 w-2 rounded-full mr-1.5"
+                style={{ backgroundColor: isConnected ? '#4CAF50' : '#F44336' }}
+              />
+              <Text
+                className="text-xs text-neo-text"
+                style={{ fontFamily: 'Nunito_600SemiBold' }}
+              >
+                {isConnected ? 'Connected' : 'Connecting...'}
+              </Text>
+            </View>
+
+            <View className="w-full mb-8">
+              <NeoInput
+                placeholder="Nickname"
+                value={nickname}
+                onChangeText={setNickname}
+                autoCorrect={false}
+              />
+            </View>
+
+            <View className="w-full mb-5">
+              <NeoButton
+                title="Create a Game"
+                onPress={handleCreateGame}
+                variant="primary"
+                style={fullWidthButtonStyle}
+              />
+            </View>
+
+            <View className="w-full gap-4">
+              <NeoButton
+                title="Join a Game"
+                onPress={handleJoinGame}
+                variant="outline"
+                style={fullWidthButtonStyle}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center', // Center content vertically
-    paddingHorizontal: 20,
-  },
-  background: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: Colors.neo.background,
-  },
-  titleContainer: {
-    marginBottom: 50, // Space between title and input
-  },
-  title: {
-    fontSize: 48,
-    fontFamily: 'Nunito_700Bold',
-    color: '#000', // Black text
-    textAlign: 'center',
-    lineHeight: 56, // Adjust for tighter stacking if needed
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 30, // Space between input and buttons
-    height: 50,
-  },
-  createButtonContainer: {
-    width: '100%',
-    marginBottom: 20, // Space between Create button and Join button
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 15, // Space between buttons
-  },
-  keyboardAvoid: {
-    flex: 1,
-    width: '100%',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  logoContainer: {
-    marginBottom: 32,
-    marginTop: -150,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 370,
-    height: 150,
-  },
-  button: {
-    width: '100%',
-  },
-});
