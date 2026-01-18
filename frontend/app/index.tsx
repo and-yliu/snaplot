@@ -101,6 +101,7 @@ export default function HomeScreen() {
                 value={nickname}
                 onChangeText={setNickname}
                 autoCorrect={false}
+                rounded="none"
               />
             </View>
 
@@ -123,7 +124,7 @@ export default function HomeScreen() {
               <NeoButton
                 title="📖 Test Story"
                 onPress={() => router.push('/story-result')}
-                variant="secondary"
+                variant="outline"
                 style={fullWidthButtonStyle}
               />
             </View>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { View, Text, Alert } from 'react-native';
+import { View, Text, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,7 +53,7 @@ export default function PlayerWaitingRoomScreen() {
 
     const handleLeaveRoom = () => {
         leaveLobby();
-        router.replace('/');
+        router.back();
     };
 
     // Navigate to game when it starts
@@ -85,7 +85,20 @@ export default function PlayerWaitingRoomScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-neo-background">
-            <View className="flex-1 w-full items-center p-5">
+            <View className="absolute top-14 left-6 z-50">
+                <TouchableOpacity
+                    onPress={handleLeaveRoom}
+                    activeOpacity={0.8}
+                    className="w-10 h-10 relative"
+                >
+                    <View className="absolute top-[2px] left-[2px] right-[-2px] bottom-[-2px] bg-neo-shadow rounded-md" />
+                    <View className="w-full h-full bg-neo-card border-2 border-neo-border items-center justify-center rounded-md">
+                        <Ionicons name="chevron-back" size={24} color={Colors.neo.text} />
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            <View className="flex-1 w-full items-center p-5 pt-16">
                 {/* Header Section */}
                 <View className="items-center mb-6 gap-4">
                     <Text
@@ -191,11 +204,6 @@ export default function PlayerWaitingRoomScreen() {
 
             {/* Footer */}
             <View className="p-5 gap-4">
-                <NeoButton
-                    title="LEAVE ROOM"
-                    onPress={handleLeaveRoom}
-                    variant="outline"
-                />
                 <NeoButton
                     title={isReady ? "READY ✓" : "READY"}
                     onPress={handleReady}
