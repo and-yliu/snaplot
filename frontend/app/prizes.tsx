@@ -7,10 +7,36 @@ import { useSocket } from '@/hooks/useSocket';
 
 export default function PrizesScreen() {
     const router = useRouter();
-    const { awards, leaveLobby } = useSocket();
+    const { awards, leaveLobby, lobbyState, socket } = useSocket();
 
     const handleReturnToRoom = () => {
-        router.replace('/host-waiting-room');
+        if (!lobbyState || !lobbyState.code) {
+            // Fallback if state is lost
+            router.replace('/');
+            return;
+        }
+
+        const isHost = socket?.id === lobbyState.hostId;
+        const currentPlayer = lobbyState.players.find(p => p.id === socket?.id);
+        const nickname = currentPlayer?.name || 'Player';
+
+        if (isHost) {
+            router.push({
+                pathname: '/host-waiting-room',
+                params: {
+                    nickname,
+                    roomPin: lobbyState.code
+                }
+            });
+        } else {
+            router.push({
+                pathname: '/player-waiting-room',
+                params: {
+                    nickname,
+                    roomPin: lobbyState.code
+                }
+            });
+        }
     };
 
     const handleQuitRoom = () => {
