@@ -50,6 +50,7 @@ export default function RoundResultScreen() {
   const [hasConfirmed, setHasConfirmed] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
+  const timeoutIds = useRef<any[]>([]);
 
   // Determine if we are in mock mode (no real data)
   const isMockMode = !roundResult;
@@ -103,8 +104,17 @@ export default function RoundResultScreen() {
     if (hasRun.current) return;
     hasRun.current = true;
 
+    // Track timeouts to clear them on unmount
+
+    const safeSetTimeout = (callback: () => void, delay: number) => {
+      const id = setTimeout(callback, delay);
+      timeoutIds.current.push(id);
+      return id;
+    };
+
     const runSequence = async () => {
       // Step 0: Initial State (Just "Criteria:" label logic handled in render)
+      console.log('Running sequence...');
 
       // Step 1: Reveal Criteria Content
       try {
@@ -114,13 +124,17 @@ export default function RoundResultScreen() {
       } // Play Drum Roll
 
       // Wait 2s for drum roll to finish/reach peak
-      setTimeout(() => {
+      safeSetTimeout(() => {
+        if (!hasRun.current) return; // Guard against unmount
         setStep(1); // Show Criteria Text
 
         // GAP 1: 1s sleep after criteria content shown
-        setTimeout(() => {
+        safeSetTimeout(() => {
+          if (!hasRun.current) return;
           // Step 2: Winner Reveal
           const playSecond = async () => {
+            // Check if mounted
+            if (!hasRun.current) return;
             try {
               if (soundRef.current) await soundRef.current.replayAsync();
             } catch (e) { }
@@ -128,19 +142,20 @@ export default function RoundResultScreen() {
           playSecond();
 
           // Wait 2s
-          setTimeout(() => {
+          safeSetTimeout(() => {
+            if (!hasRun.current) return;
             setStep(2); // Show Winner Info
 
             // GAP 2: 1s pause before Judge's Comment
-            setTimeout(() => {
+            safeSetTimeout(() => {
+              if (!hasRun.current) return;
               setStep(3);
               Animated.timing(opacityAnim, {
                 toValue: 1,
                 duration: 3000, // Longer ease-in (3s)
                 useNativeDriver: true,
               }).start(() => {
-                // Step 4: Final Actions
-                setStep(4);
+                if (hasRun.current) setStep(4);
               });
             }, 1000); // Increased delay to ensure 1s+ gap
           }, 2000);
@@ -149,7 +164,17 @@ export default function RoundResultScreen() {
     };
 
     runSequence();
-  }, [opacityAnim, roundResult]); // Depend on player availability
+
+    return () => {
+      console.log('Cleaning up sequence...');
+      hasRun.current = false; // Mark as unmounted/invalid
+      timeoutIds.current.forEach(clearTimeout);
+      timeoutIds.current = [];
+      if (soundRef.current) {
+        soundRef.current.stopAsync();
+      }
+    };
+  }, [opacityAnim, resultData, isMockMode, roundResult]); // Depend on player availability
 
   // ... rest of the component
 
@@ -182,7 +207,7 @@ export default function RoundResultScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-neo-background" edges={['top', 'left', 'right', 'bottom']}>
-      <View className="flex-1 w-full px-6 py-4">
+      <View className="flex-1 w-full px-6 py-0">
 
         {/* Round Header */}
         <View className="w-full items-center mb-4">
@@ -195,8 +220,8 @@ export default function RoundResultScreen() {
         </View>
 
         {/* Theme & Criteria Section */}
-        <View className="w-full mb-4">
-          <View className="mb-2">
+        <View className="w-full mb-1">
+          <View className="mb-1">
             <Text
               className="text-sm text-neo-text/50 uppercase tracking-wider"
               style={{ fontFamily: 'Nunito_700Bold' }}
@@ -269,7 +294,7 @@ export default function RoundResultScreen() {
 
       {/* Fixed Footer - Reactions & Ready Button */}
       {step >= 4 && (
-        <View className="absolute bottom-0 left-0 right-0 px-6 mb-10 pt-3 bg-neo-background gap-6">
+        <View className="absolute bottom-0 left-0 right-0 px-6 mb-10 pt-3 bg-neo-background gap-4">
           {/* Remote reactions from other players - positioned above the buttons */}
           <View style={{ position: 'absolute', top: -150, left: 0, right: 0, height: 150, pointerEvents: 'none' }}>
             {remoteReactions.map((reaction) => (
