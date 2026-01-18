@@ -37,6 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="host-waiting-room" options={{ headerShown: false }} />
         <Stack.Screen name="player-waiting-room" options={{ headerShown: false }} />
         <Stack.Screen name="game/index" options={{ headerShown: false }} />
+        <Stack.Screen name="round-result" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

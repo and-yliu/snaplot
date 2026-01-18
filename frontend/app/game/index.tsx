@@ -54,13 +54,10 @@ export default function GameScreen() {
 
     const handleSubmit = () => {
         setIsSubmitting(true);
-        // Simulate submission
-        setTimeout(() => {
-            setIsSubmitting(false);
-            // Navigate to results or waiting screen? For now just log
-            console.log('Submitted photo:', photo);
-            router.push('/'); // Go back home for now, or maybe staying here waiting for others
-        }, 1000);
+        console.log('Submitted photo:', photo);
+        // Navigate immediately
+        router.push('/round-result' as any);
+        setIsSubmitting(false);
     };
 
     return (
