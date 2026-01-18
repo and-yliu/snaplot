@@ -13,19 +13,20 @@ Generate a fun, short Mad Libs-style story with EXACTLY the requested number of 
 1. The story should be 3-6 sentences long
 2. Each blank is marked with {0}, {1}, {2}, etc.
 3. The story should be silly, fun, and suitable for a party game
-4. Blanks should be for OBJECTS that players can photograph in real life
-5. The story MUST have a named protagonist (a silly/fun name like "Captain Wobblesworth" or "Chef Pepper")
+4. Blanks should be objects that players can photograph in real life
+5. The story MUST have a protagonist
 
 **BLANK REQUIREMENTS:**
-For each blank, provide:
-- **theme**: A fun, descriptive theme (e.g., "An unexpected kitchen visitor")
-- **criteria**: How the submission will be judged (e.g., "the most surprising", "the tiniest", "the fluffiest")
+For each blank, provide a fun and creative riddle (theme), and a criteria for judging the player's submission. Here are some examples of good pairs:
 
-**EXAMPLES OF GOOD THEMES + CRITERIA:**
-- Theme: "Something you'd find in a wizard's pocket" / Criteria: "the most magical"
-- Theme: "A suspicious vegetable" / Criteria: "the most suspicious-looking"
-- Theme: "Emergency survival gear" / Criteria: "the least useful"
-- Theme: "A creature of the night" / Criteria: "the cutest"
+**EXAMPLES OF THEMES + CRITERIA:**
+- Theme: A thing that holds water but is not a cup
+- Criteria: The most disgusting
+- Theme: Something you acquire for free, but cost a fortune to get rid of
+- Criteria: The most biologically regretful
+- Theme: I cost thousands of dollars, yet I serve no purpose other than reminding you of your failures
+- Criteria: The most inhuman
+- **NOTE**: The criteria MUST be in the format "The most [adjective]"
 
 Make the story cohesive and the blanks flow naturally within the narrative!`;
 

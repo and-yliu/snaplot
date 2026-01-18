@@ -33,7 +33,7 @@ export const JUDGE_SCHEMA = {
         },
         judgesExplanation: {
             type: "string",
-            description: "A fun explanation of why this submission won",
+            description: "A fun and reasonable explanation of why this submission should won",
         },
     },
     required: ["chosenPlayerId", "judgesExplanation"],

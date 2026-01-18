@@ -14,7 +14,7 @@ Take the story template and the winning submissions for each blank, then create 
 1. Identify the protagonist in the story and replace their name with the provided trollName
 2. Create segments where each segment LEADS UP TO but does NOT INCLUDE the item
 3. Each segment should end naturally before revealing what the item is
-4. Also provide the complete final story with all items included
+4. Also provide a closing paragraph for the story (1-2 sentences)
 
 **SEGMENT FORMAT:**
 For each blank {0}, {1}, etc., create a segment that tells the story up to that point.
@@ -22,10 +22,7 @@ The segment should build suspense/anticipation for the reveal of that item.
 
 Example: If story is "Bob found a {0} in the closet and then ate {1}"
 - Segment 0 lead: "Bob searched through the dusty closet and discovered..."
-- Segment 1 lead: "...and then, overcome with hunger, devoured a delicious..."
-
-**FORMAT:**
-Create segments that flow narratively and build excitement for each item reveal!`;
+- Segment 1 lead: "...and then, overcome with hunger, devoured a delicious..."`;
 
 
 export const RECAP_SCHEMA = {
@@ -52,7 +49,7 @@ export const RECAP_SCHEMA = {
         },
         finalStory: {
             type: "string",
-            description: "The complete story with all blanks filled in and the troll player as protagonist",
+            description: "a closing paragraph for the story",
         },
     },
     required: ["segments", "finalStory"],
