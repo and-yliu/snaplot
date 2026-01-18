@@ -84,7 +84,7 @@ export default function HomeScreen() {
                 />
                 <NeoButton
                   title="🏆 Test Round Result"
-                  onPress={() => router.push('/round-result')}
+                  onPress={() => router.push('/round-result' as any)}
                   variant="secondary"
                   style={styles.button}
                 />
