@@ -17,7 +17,7 @@ export class LobbyManager {
      * Generate a random 4-character lobby code
      */
     private generateCode(): string {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0/O, 1/I)
+        const chars = '0123456789'; // No confusing chars (0/O, 1/I)
         let code = '';
         for (let i = 0; i < 4; i++) {
             code += chars.charAt(Math.floor(Math.random() * chars.length));
