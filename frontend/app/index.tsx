@@ -121,12 +121,6 @@ export default function HomeScreen() {
                 variant="outline"
                 style={fullWidthButtonStyle}
               />
-              <NeoButton
-                title="🏆 Test Round"
-                onPress={() => router.push('/round-result')}
-                variant="outline"
-                style={fullWidthButtonStyle}
-              />
             </View>
           </View>
         </View>

@@ -119,7 +119,8 @@ export default function GameScreen() {
     };
 
     const handleSubmit = () => {
-        if (!photo || isUploading || hasSubmitted) return;
+        // Don't allow new submissions when time is up (grace period is for in-flight requests only)
+        if (!photo || isUploading || hasSubmitted || timeLeft <= 0) return;
         setHasSubmitted(true);
         setIsUploading(true);
         uploadAndSubmitPhoto(photo)
@@ -215,7 +216,7 @@ export default function GameScreen() {
                     </View>
 
                     {/* Buttons - on the right, only show when photo taken and not submitted */}
-                    {photo && !hasSubmitted ? (
+                    {photo && !hasSubmitted && timeLeft > 0 ? (
                         <>
                             <NeoButton
                                 title={isUploading ? 'uploading...' : 'submit'}

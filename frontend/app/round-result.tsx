@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
@@ -171,7 +171,11 @@ export default function RoundResultScreen() {
       timeoutIds.current.forEach(clearTimeout);
       timeoutIds.current = [];
       if (soundRef.current) {
-        soundRef.current.stopAsync();
+        try {
+          soundRef.current.stopAsync().catch(() => { });
+        } catch (e) {
+          // Sound not loaded, ignore
+        }
       }
     };
   }, [opacityAnim, resultData, isMockMode, roundResult]); // Depend on player availability
@@ -207,10 +211,10 @@ export default function RoundResultScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-neo-background" edges={['top', 'left', 'right', 'bottom']}>
-      <View className="flex-1 w-full px-6 py-0">
+      <View className="flex-1 w-full py-0">
 
         {/* Round Header */}
-        <View className="w-full items-center mb-4">
+        <View className="w-full items-center mb-1 px-6">
           <Text
             className="text-base text-neo-text/60"
             style={{ fontFamily: 'Nunito_600SemiBold' }}
@@ -219,76 +223,83 @@ export default function RoundResultScreen() {
           </Text>
         </View>
 
-        {/* Theme & Criteria Section */}
-        <View className="w-full mb-1">
-          <View className="mb-1">
-            <Text
-              className="text-sm text-neo-text/50 uppercase tracking-wider"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              Theme
-            </Text>
-            <Text
-              className="text-xl text-neo-text"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              {step >= 1 ? theme : '...'}
-            </Text>
-          </View>
-          <View>
-            <Text
-              className="text-sm text-neo-text/50 uppercase tracking-wider"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              Criteria
-            </Text>
-            <Text
-              className="text-xl text-neo-text"
-              style={{ fontFamily: 'Nunito_700Bold' }}
-            >
-              {step >= 1 ? criteria : '...'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Winner Section with Comment */}
-        {step >= 2 && (
-          <View className="w-full relative">
-            {/* Winner Photo */}
-            <View className="w-full rounded-2xl aspect-square bg-white border-2 border-neo-border overflow-hidden">
-              {winnerPhotoUrl ? (
-                <Image
-                  source={{ uri: winnerPhotoUrl }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
-              ) : null}
-            </View>
-
-            {/* Winner Name Tag - overlaid on top right */}
-            <View className="absolute top-3 right-3 bg-black px-4 py-1.5 rounded-full">
+        {/* Scrollable Content Area */}
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 24 }}
+        >
+          {/* Theme & Criteria Section */}
+          <View className="w-full mb-1">
+            <View className="mb-1">
               <Text
-                className="text-base text-white"
+                className="text-sm text-neo-text/50 uppercase tracking-wider"
                 style={{ fontFamily: 'Nunito_700Bold' }}
               >
-                {winnerName}
+                Theme
+              </Text>
+              <Text
+                className="text-xl text-neo-text"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                {step >= 1 ? theme : '...'}
+              </Text>
+            </View>
+            <View>
+              <Text
+                className="text-sm text-neo-text/50 uppercase tracking-wider"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                Criteria
+              </Text>
+              <Text
+                className="text-xl text-neo-text"
+                style={{ fontFamily: 'Nunito_700Bold' }}
+              >
+                {step >= 1 ? criteria : '...'}
               </Text>
             </View>
           </View>
-        )}
 
-        {/* Judge's Comment - grouped with image */}
-        <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 5 }}>
-          {step >= 3 && (
-            <NeoView className="w-full bg-[#FFF5EB] mt-1">
-              <TypewriterText
-                text={`"${comment}"`}
-                className="text-xl text-[#4caf50]"
-                style={{ fontFamily: 'Nunito_600SemiBold', lineHeight: 26 }}
-              />
-            </NeoView>
+          {/* Winner Section with Comment */}
+          {step >= 2 && (
+            <View className="w-full relative">
+              {/* Winner Photo */}
+              <View className="w-full rounded-2xl aspect-square bg-white border-2 border-neo-border overflow-hidden">
+                {winnerPhotoUrl ? (
+                  <Image
+                    source={{ uri: winnerPhotoUrl }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                ) : null}
+              </View>
+
+              {/* Winner Name Tag - overlaid on top right */}
+              <View className="absolute top-3 right-3 bg-black px-4 py-1.5 rounded-full">
+                <Text
+                  className="text-base text-white"
+                  style={{ fontFamily: 'Nunito_700Bold' }}
+                >
+                  {winnerName}
+                </Text>
+              </View>
+            </View>
           )}
-        </Animated.View>
+
+          {/* Judge's Comment - grouped with image */}
+          <Animated.View style={{ opacity: opacityAnim, width: '100%', marginTop: 5 }}>
+            {step >= 3 && (
+              <NeoView className="w-full bg-[#FFF5EB] mt-1">
+                <TypewriterText
+                  text={`"${comment}"`}
+                  className="text-xl text-[#4caf50]"
+                  style={{ fontFamily: 'Nunito_600SemiBold', lineHeight: 26 }}
+                />
+              </NeoView>
+            )}
+          </Animated.View>
+        </ScrollView>
 
       </View>
 
@@ -369,18 +380,20 @@ function NeoReactionButton({ icon, color, onSend }: { icon: IconName; color: str
 
 function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; color: string; onComplete: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
+  // Random horizontal position (10-90% of container width)
+  const randomLeft = useRef(Math.floor(10 + Math.random() * 80)).current;
 
   useEffect(() => {
     Animated.timing(anim, {
       toValue: 1,
-      duration: 1000,
+      duration: 1200,
       useNativeDriver: true,
     }).start(onComplete);
   }, []);
 
   const translateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -100] // Fly up 100px
+    outputRange: [0, -120] // Fly up 120px
   });
 
   const opacity = anim.interpolate({
@@ -389,27 +402,22 @@ function FlyingEmoji({ icon, color, onComplete }: { icon: IconName | string; col
   });
 
   const scale = anim.interpolate({
-    inputRange: [0, 0.2, 1],
-    outputRange: [0.5, 1.2, 1] // Pop effect
+    inputRange: [0, 0.15, 0.3, 1],
+    outputRange: [0.3, 1.4, 1.1, 1] // Pop effect
   });
 
   return (
     <Animated.View
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
         bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
+        left: `${randomLeft}%`,
+        transform: [{ translateX: -20 }, { translateY }, { scale }],
+        opacity,
         zIndex: 100,
-        pointerEvents: 'none',
-        transform: [{ translateY }, { scale }],
-        opacity
       }}
     >
-      <Ionicons name={icon as IconName} size={28} color={color} />
+      <Ionicons name={icon as IconName} size={40} color={color} />
     </Animated.View>
   );
 }

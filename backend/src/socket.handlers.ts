@@ -62,6 +62,10 @@ export function setupSocketHandlers(io: Server): void {
         onTick: (lobbyCode, remainingSeconds) => {
             io.to(lobbyCode).emit('game:tick', { remainingSeconds });
         },
+        onGracePeriodStart: (lobbyCode) => {
+            // Show "Judging..." UI immediately when timer ends
+            io.to(lobbyCode).emit('game:judging');
+        },
         onRoundEnd: async (lobbyCode) => {
             await handleRoundEnd(io, lobbyCode);
         },
@@ -463,8 +467,7 @@ async function handleRoundEnd(io: Server, lobbyCode: string): Promise<void> {
     const game = gameManager.getGame(lobbyCode);
     if (!game) return;
 
-    // Notify players judging is starting
-    io.to(lobbyCode).emit('game:judging');
+    // Note: game:judging is emitted earlier via onGracePeriodStart callback
 
     // Run AI judge - returns single winner
     const result = await gameManager.judgeRound(lobbyCode);
